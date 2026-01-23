@@ -70,6 +70,11 @@ async function saveTransaction(transaction) {
 }
 
 async function deleteTransaction(id) {
+    // Confirm before deleting
+    if (!confirm('האם אתה בטוח שברצונך למחוק את התנועה?')) {
+        return;
+    }
+
     try {
         const response = await fetch(`${API_URL}/api/transactions/${id}`, {
             method: 'DELETE'
