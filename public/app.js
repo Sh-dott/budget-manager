@@ -202,7 +202,7 @@ function openModal() {
         b.classList.toggle('active', b.dataset.type === 'expense');
     });
     document.querySelectorAll('.person-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.person === 'אני');
+        b.classList.toggle('active', b.dataset.person === 'Shai');
     });
 
     state.currentType = 'expense';
