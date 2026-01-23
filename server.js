@@ -160,6 +160,36 @@ app.delete('/api/categories/:type/:name', async (req, res) => {
     }
 });
 
+// Get avatars
+app.get('/api/avatars', async (req, res) => {
+    try {
+        const avatarsDoc = await db.collection('settings').findOne({ _id: 'avatars' });
+        res.json(avatarsDoc || { Shai: '', Gal: '' });
+    } catch (error) {
+        console.error('Error fetching avatars:', error);
+        res.status(500).json({ error: 'Failed to fetch avatars' });
+    }
+});
+
+// Update avatar
+app.post('/api/avatars/:person', async (req, res) => {
+    try {
+        const { person } = req.params;
+        const { avatar } = req.body;
+
+        await db.collection('settings').updateOne(
+            { _id: 'avatars' },
+            { $set: { [person]: avatar } },
+            { upsert: true }
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving avatar:', error);
+        res.status(500).json({ success: false, error: 'Failed to save avatar' });
+    }
+});
+
 // Start server
 connectDB().then(() => {
     app.listen(PORT, () => {

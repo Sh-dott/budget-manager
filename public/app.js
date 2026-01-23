@@ -10,8 +10,8 @@ let state = {
     currentMonth: new Date(),
     currentType: 'expense',
     avatars: {
-        Shai: localStorage.getItem('avatar_Shai') || '',
-        Gal: localStorage.getItem('avatar_Gal') || ''
+        Shai: '',
+        Gal: ''
     }
 };
 
@@ -28,10 +28,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function init() {
     await loadData();
+    await loadAvatars();
     setupEventListeners();
     setupMobileMenu();
     setupAvatarUploads();
-    loadAvatars();
     updateUI();
 }
 
@@ -795,20 +795,68 @@ function handleAvatarUpload(event, person) {
     const file = event.target.files[0];
     if (!file) return;
 
+    // Compress image before uploading
     const reader = new FileReader();
-    reader.onload = (e) => {
-        const dataUrl = e.target.result;
-        state.avatars[person] = dataUrl;
-        localStorage.setItem(`avatar_${person}`, dataUrl);
-        updateAvatarDisplays();
-        showToast(`תמונת ${person} עודכנה`, 'success');
+    reader.onload = async (e) => {
+        const img = new Image();
+        img.onload = async () => {
+            // Resize to max 200x200 to reduce size
+            const canvas = document.createElement('canvas');
+            const maxSize = 200;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+                if (width > maxSize) {
+                    height *= maxSize / width;
+                    width = maxSize;
+                }
+            } else {
+                if (height > maxSize) {
+                    width *= maxSize / height;
+                    height = maxSize;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+            // Save to server
+            try {
+                const response = await fetch(`${API_URL}/api/avatars/${person}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ avatar: dataUrl })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    state.avatars[person] = dataUrl;
+                    updateAvatarDisplays();
+                    showToast(`תמונת ${person} עודכנה`, 'success');
+                }
+            } catch (error) {
+                console.error('Error saving avatar:', error);
+                showToast('שגיאה בשמירת התמונה', 'error');
+            }
+        };
+        img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 }
 
-function loadAvatars() {
-    state.avatars.Shai = localStorage.getItem('avatar_Shai') || '';
-    state.avatars.Gal = localStorage.getItem('avatar_Gal') || '';
+async function loadAvatars() {
+    try {
+        const response = await fetch(`${API_URL}/api/avatars`);
+        const avatars = await response.json();
+        state.avatars.Shai = avatars.Shai || '';
+        state.avatars.Gal = avatars.Gal || '';
+    } catch (error) {
+        console.error('Error loading avatars:', error);
+    }
     updateAvatarDisplays();
 }
 
