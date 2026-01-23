@@ -11,7 +11,8 @@ let state = {
     currentType: 'expense',
     avatars: {
         Shai: '',
-        Gal: ''
+        Gal: '',
+        Chubby: ''
     }
 };
 
@@ -782,12 +783,16 @@ function setupMobileMenu() {
 function setupAvatarUploads() {
     const shaiInput = document.getElementById('shaiAvatarInput');
     const galInput = document.getElementById('galAvatarInput');
+    const chubbyInput = document.getElementById('chubbyAvatarInput');
 
     if (shaiInput) {
         shaiInput.addEventListener('change', (e) => handleAvatarUpload(e, 'Shai'));
     }
     if (galInput) {
         galInput.addEventListener('change', (e) => handleAvatarUpload(e, 'Gal'));
+    }
+    if (chubbyInput) {
+        chubbyInput.addEventListener('change', (e) => handleAvatarUpload(e, 'Chubby'));
     }
 }
 
@@ -854,6 +859,7 @@ async function loadAvatars() {
         const avatars = await response.json();
         state.avatars.Shai = avatars.Shai || '';
         state.avatars.Gal = avatars.Gal || '';
+        state.avatars.Chubby = avatars.Chubby || '';
     } catch (error) {
         console.error('Error loading avatars:', error);
     }
@@ -864,6 +870,7 @@ function updateAvatarDisplays() {
     // Update settings page avatars
     const shaiPreview = document.getElementById('shaiAvatar');
     const galPreview = document.getElementById('galAvatar');
+    const chubbyPreview = document.getElementById('chubbyAvatar');
 
     if (shaiPreview) {
         if (state.avatars.Shai) {
@@ -881,9 +888,18 @@ function updateAvatarDisplays() {
         }
     }
 
+    if (chubbyPreview) {
+        if (state.avatars.Chubby) {
+            chubbyPreview.innerHTML = `<img src="${state.avatars.Chubby}" alt="Chubby">`;
+        } else {
+            chubbyPreview.innerHTML = '<span>C</span>';
+        }
+    }
+
     // Update modal person buttons
     const shaiBtn = document.getElementById('shaiAvatarBtn');
     const galBtn = document.getElementById('galAvatarBtn');
+    const chubbyBtn = document.getElementById('chubbyAvatarBtn');
 
     if (shaiBtn) {
         if (state.avatars.Shai) {
@@ -902,6 +918,15 @@ function updateAvatarDisplays() {
             galBtn.style.display = 'none';
         }
     }
+
+    if (chubbyBtn) {
+        if (state.avatars.Chubby) {
+            chubbyBtn.src = state.avatars.Chubby;
+            chubbyBtn.style.display = 'block';
+        } else {
+            chubbyBtn.style.display = 'none';
+        }
+    }
 }
 
 function getPersonAvatar(person) {
@@ -909,6 +934,8 @@ function getPersonAvatar(person) {
         return `<img src="${state.avatars.Shai}" alt="Shai" class="transaction-person-avatar">`;
     } else if (person === 'Gal' && state.avatars.Gal) {
         return `<img src="${state.avatars.Gal}" alt="Gal" class="transaction-person-avatar">`;
+    } else if (person === 'Chubby' && state.avatars.Chubby) {
+        return `<img src="${state.avatars.Chubby}" alt="Chubby" class="transaction-person-avatar">`;
     } else if (person === 'משותף') {
         return '<span class="transaction-person-initial">👫</span>';
     } else {

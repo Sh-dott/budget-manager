@@ -57,6 +57,20 @@ body {
     min-height: 100vh;
     overflow-x: hidden;
     direction: rtl;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth scrolling */
+* {
+    scroll-behavior: smooth;
+}
+
+/* Better touch feedback */
+button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 /* Background Effects */
@@ -314,12 +328,22 @@ body {
 
 .view.active {
     display: block;
-    animation: fadeIn 0.3s ease;
+    animation: fadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
+    from { opacity: 0; transform: translateY(15px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+/* Smooth transitions for interactive elements */
+.card, .stat-card, .transaction-item, .category-tag {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transaction-item:active {
+    transform: scale(0.98);
+    background: var(--bg-glass);
 }
 
 /* Stats Cards */
@@ -765,6 +789,17 @@ body {
     }
 }
 
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .modal-header {
     display: flex;
     justify-content: space-between;
@@ -893,8 +928,8 @@ body {
 
 .person-selector {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.75rem;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
 }
 
 .person-btn {
@@ -1013,8 +1048,8 @@ body {
 /* Settings / Avatar Upload */
 .avatars-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 2rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
     padding: 1rem;
 }
 
@@ -1108,10 +1143,11 @@ body {
     bottom: 0;
     left: 0;
     right: 0;
-    background: var(--bg-card);
+    background: rgba(15, 15, 26, 0.95);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-top: 1px solid var(--border);
-    padding: 0.5rem 0.25rem;
+    padding: 0.5rem 0.5rem;
     padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
     z-index: 1000;
     justify-content: space-around;
@@ -1122,38 +1158,77 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.25rem;
-    padding: 0.5rem;
+    gap: 0.2rem;
+    padding: 0.6rem 0.8rem;
     background: transparent;
     border: none;
     color: var(--text-muted);
     font-family: inherit;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     cursor: pointer;
-    transition: all 0.2s ease;
-    min-width: 60px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 56px;
+    border-radius: var(--radius-md);
+    position: relative;
+}
+
+.mobile-nav-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%) scaleX(0);
+    width: 20px;
+    height: 3px;
+    background: var(--gradient-primary);
+    border-radius: 2px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mobile-nav-item.active {
     color: var(--primary-light);
 }
 
+.mobile-nav-item.active::before {
+    transform: translateX(-50%) scaleX(1);
+}
+
+.mobile-nav-item:active {
+    transform: scale(0.92);
+    background: var(--bg-glass);
+}
+
 .mobile-nav-icon {
-    font-size: 1.25rem;
+    font-size: 1.3rem;
+    transition: transform 0.2s ease;
+}
+
+.mobile-nav-item.active .mobile-nav-icon {
+    transform: scale(1.1);
 }
 
 .mobile-nav-item.add-fab {
     background: var(--gradient-primary);
-    width: 56px;
-    height: 56px;
+    width: 58px;
+    height: 58px;
     border-radius: 50%;
-    margin-top: -1.5rem;
-    box-shadow: var(--shadow-glow);
+    margin-top: -2rem;
+    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
     color: white;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mobile-nav-item.add-fab::before {
+    display: none;
+}
+
+.mobile-nav-item.add-fab:active {
+    transform: scale(0.9);
+    box-shadow: 0 2px 10px rgba(124, 58, 237, 0.3);
 }
 
 .mobile-nav-item.add-fab .mobile-nav-icon {
-    font-size: 1.75rem;
+    font-size: 2rem;
     font-weight: 300;
 }
 
@@ -1336,8 +1411,8 @@ body {
 
     /* Avatars */
     .avatars-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1.5rem;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
     }
 
     .avatar-preview {
@@ -1363,6 +1438,11 @@ body {
         border-radius: var(--radius-xl) var(--radius-xl) 0 0;
         max-height: 90vh;
         overflow-y: auto;
+        animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .modal-overlay {
+        animation: fadeIn 0.25s ease;
     }
 
     .modal-header {
@@ -1387,17 +1467,18 @@ body {
     }
 
     .person-selector {
-        gap: 0.5rem;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.4rem;
     }
 
     .person-btn {
-        padding: 0.75rem 0.5rem;
-        font-size: 0.8rem;
+        padding: 0.6rem 0.25rem;
+        font-size: 0.7rem;
     }
 
     .person-avatar {
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
     }
 
     .form-actions {
@@ -1441,10 +1522,25 @@ body {
     }
 
     .avatars-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+    }
+
+    .avatar-preview {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+    }
+
+    .avatar-setting h4 {
+        font-size: 0.9rem;
     }
 
     .transaction-details h4 {
         max-width: 120px;
+    }
+
+    .person-selector {
+        grid-template-columns: repeat(2, 1fr);
     }
 }
