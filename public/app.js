@@ -8,7 +8,11 @@ let state = {
     transactions: [],
     categories: { income: [], expense: [] },
     currentMonth: new Date(),
-    currentType: 'expense'
+    currentType: 'expense',
+    avatars: {
+        Shai: localStorage.getItem('avatar_Shai') || '',
+        Gal: localStorage.getItem('avatar_Gal') || ''
+    }
 };
 
 // Hebrew month names
@@ -25,6 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
 async function init() {
     await loadData();
     setupEventListeners();
+    setupMobileMenu();
+    setupAvatarUploads();
+    loadAvatars();
     updateUI();
 }
 
@@ -348,7 +355,7 @@ function renderTransactions(container, transactions) {
                         <span>${t.category}</span>
                         <span>•</span>
                         <span>${formatDate(t.date)}</span>
-                        ${t.person ? `<span>•</span><span>${t.person}</span>` : ''}
+                        ${t.person ? `<span>•</span>${getPersonAvatar(t.person)}<span>${t.person}</span>` : ''}
                     </div>
                 </div>
             </div>
@@ -357,7 +364,7 @@ function renderTransactions(container, transactions) {
                     ${t.type === 'income' ? '+' : '-'}${formatCurrency(t.amount)}
                 </span>
                 <button class="delete-btn" onclick="deleteTransaction(${t.id})" title="מחק">
-                    🗑️
+                    מחק
                 </button>
             </div>
         </div>
@@ -723,6 +730,130 @@ function showToast(message, type = 'success') {
     setTimeout(() => {
         toast.classList.remove('show');
     }, 3000);
+}
+
+// Mobile Menu
+function setupMobileMenu() {
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.querySelector('.sidebar');
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    if (menuToggle) {
+        menuToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('open');
+        });
+    }
+
+    overlay.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('open');
+    });
+
+    // Close menu when nav item clicked on mobile
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('open');
+            }
+        });
+    });
+}
+
+// Avatar Management
+function setupAvatarUploads() {
+    const shaiInput = document.getElementById('shaiAvatarInput');
+    const galInput = document.getElementById('galAvatarInput');
+
+    if (shaiInput) {
+        shaiInput.addEventListener('change', (e) => handleAvatarUpload(e, 'Shai'));
+    }
+    if (galInput) {
+        galInput.addEventListener('change', (e) => handleAvatarUpload(e, 'Gal'));
+    }
+}
+
+function handleAvatarUpload(event, person) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const dataUrl = e.target.result;
+        state.avatars[person] = dataUrl;
+        localStorage.setItem(`avatar_${person}`, dataUrl);
+        updateAvatarDisplays();
+        showToast(`תמונת ${person} עודכנה`, 'success');
+    };
+    reader.readAsDataURL(file);
+}
+
+function loadAvatars() {
+    state.avatars.Shai = localStorage.getItem('avatar_Shai') || '';
+    state.avatars.Gal = localStorage.getItem('avatar_Gal') || '';
+    updateAvatarDisplays();
+}
+
+function updateAvatarDisplays() {
+    // Update settings page avatars
+    const shaiPreview = document.getElementById('shaiAvatar');
+    const galPreview = document.getElementById('galAvatar');
+
+    if (shaiPreview) {
+        if (state.avatars.Shai) {
+            shaiPreview.innerHTML = `<img src="${state.avatars.Shai}" alt="Shai">`;
+        } else {
+            shaiPreview.innerHTML = '<span>S</span>';
+        }
+    }
+
+    if (galPreview) {
+        if (state.avatars.Gal) {
+            galPreview.innerHTML = `<img src="${state.avatars.Gal}" alt="Gal">`;
+        } else {
+            galPreview.innerHTML = '<span>G</span>';
+        }
+    }
+
+    // Update modal person buttons
+    const shaiBtn = document.getElementById('shaiAvatarBtn');
+    const galBtn = document.getElementById('galAvatarBtn');
+
+    if (shaiBtn) {
+        if (state.avatars.Shai) {
+            shaiBtn.src = state.avatars.Shai;
+            shaiBtn.style.display = 'block';
+        } else {
+            shaiBtn.style.display = 'none';
+        }
+    }
+
+    if (galBtn) {
+        if (state.avatars.Gal) {
+            galBtn.src = state.avatars.Gal;
+            galBtn.style.display = 'block';
+        } else {
+            galBtn.style.display = 'none';
+        }
+    }
+}
+
+function getPersonAvatar(person) {
+    if (person === 'Shai' && state.avatars.Shai) {
+        return `<img src="${state.avatars.Shai}" alt="Shai" class="transaction-person-avatar">`;
+    } else if (person === 'Gal' && state.avatars.Gal) {
+        return `<img src="${state.avatars.Gal}" alt="Gal" class="transaction-person-avatar">`;
+    } else if (person === 'משותף') {
+        return '<span class="transaction-person-initial">👫</span>';
+    } else {
+        const initial = person ? person.charAt(0).toUpperCase() : '?';
+        return `<span class="transaction-person-initial">${initial}</span>`;
+    }
 }
 
 // Make functions globally available

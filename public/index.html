@@ -44,6 +44,10 @@
                     <span class="nav-icon">🏷️</span>
                     <span>קטגוריות</span>
                 </li>
+                <li class="nav-item" data-view="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span>הגדרות</span>
+                </li>
             </ul>
 
             <div class="sidebar-footer">
@@ -58,6 +62,11 @@
         <main class="main">
             <!-- Top Bar -->
             <header class="topbar">
+                <button class="menu-toggle" id="menuToggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
                 <div class="month-nav">
                     <button class="month-btn" id="prevMonth">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -194,6 +203,33 @@
                 </div>
             </section>
 
+            <!-- Settings View -->
+            <section class="view" id="settings-view">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>תמונות פרופיל</h3>
+                    </div>
+                    <div class="avatars-grid">
+                        <div class="avatar-setting">
+                            <div class="avatar-preview" id="shaiAvatar">
+                                <span>S</span>
+                            </div>
+                            <h4>Shai</h4>
+                            <input type="file" id="shaiAvatarInput" accept="image/*" hidden>
+                            <button class="btn-secondary" onclick="document.getElementById('shaiAvatarInput').click()">בחר תמונה</button>
+                        </div>
+                        <div class="avatar-setting">
+                            <div class="avatar-preview" id="galAvatar">
+                                <span>G</span>
+                            </div>
+                            <h4>Gal</h4>
+                            <input type="file" id="galAvatarInput" accept="image/*" hidden>
+                            <button class="btn-secondary" onclick="document.getElementById('galAvatarInput').click()">בחר תמונה</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Categories View -->
             <section class="view" id="categories-view">
                 <div class="categories-grid">
@@ -267,9 +303,18 @@
                 <div class="form-group">
                     <label>מי הוסיף?</label>
                     <div class="person-selector">
-                        <button type="button" class="person-btn active" data-person="Shai">Shai</button>
-                        <button type="button" class="person-btn" data-person="Gal">Gal</button>
-                        <button type="button" class="person-btn" data-person="משותף">משותף</button>
+                        <button type="button" class="person-btn active" data-person="Shai">
+                            <img src="" alt="" class="person-avatar" id="shaiAvatarBtn">
+                            <span>Shai</span>
+                        </button>
+                        <button type="button" class="person-btn" data-person="Gal">
+                            <img src="" alt="" class="person-avatar" id="galAvatarBtn">
+                            <span>Gal</span>
+                        </button>
+                        <button type="button" class="person-btn" data-person="משותף">
+                            <span>👫</span>
+                            <span>משותף</span>
+                        </button>
                     </div>
                 </div>
 
