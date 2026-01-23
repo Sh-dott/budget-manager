@@ -87,6 +87,8 @@ app.post('/api/transactions', async (req, res) => {
         const transaction = {
             ...req.body,
             id: Date.now(),
+            isRecurring: req.body.isRecurring || false,
+            recurringDay: req.body.isRecurring ? new Date(req.body.date).getDate() : null,
             createdAt: new Date().toISOString()
         };
 
@@ -102,6 +104,7 @@ app.post('/api/transactions', async (req, res) => {
 app.put('/api/transactions/:id', async (req, res) => {
     try {
         const id = parseInt(req.params.id);
+        const isRecurring = req.body.isRecurring || false;
         const updates = {
             type: req.body.type,
             amount: req.body.amount,
@@ -109,6 +112,8 @@ app.put('/api/transactions/:id', async (req, res) => {
             description: req.body.description,
             date: req.body.date,
             person: req.body.person,
+            isRecurring: isRecurring,
+            recurringDay: isRecurring ? new Date(req.body.date).getDate() : null,
             updatedAt: new Date().toISOString()
         };
 
@@ -130,6 +135,39 @@ app.delete('/api/transactions/:id', async (req, res) => {
     } catch (error) {
         console.error('Error deleting transaction:', error);
         res.status(500).json({ success: false, error: 'Failed to delete transaction' });
+    }
+});
+
+// Get recurring transactions
+app.get('/api/recurring', async (req, res) => {
+    try {
+        const recurring = await db.collection('transactions').find({ isRecurring: true }).toArray();
+        res.json(recurring);
+    } catch (error) {
+        console.error('Error fetching recurring transactions:', error);
+        res.status(500).json({ error: 'Failed to fetch recurring transactions' });
+    }
+});
+
+// Toggle recurring status
+app.put('/api/transactions/:id/recurring', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const { isRecurring } = req.body;
+        const transaction = await db.collection('transactions').findOne({ id });
+
+        const recurringDay = isRecurring ? new Date(transaction.date).getDate() : null;
+
+        await db.collection('transactions').updateOne(
+            { id },
+            { $set: { isRecurring, recurringDay } }
+        );
+
+        const updated = await db.collection('transactions').findOne({ id });
+        res.json({ success: true, transaction: updated });
+    } catch (error) {
+        console.error('Error updating recurring status:', error);
+        res.status(500).json({ success: false, error: 'Failed to update recurring status' });
     }
 });
 

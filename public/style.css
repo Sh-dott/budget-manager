@@ -21,11 +21,13 @@
     --warning: #f59e0b;
 
     /* Dark Theme */
-    --bg-primary: #0f0f1a;
-    --bg-secondary: #1a1a2e;
-    --bg-card: rgba(26, 26, 46, 0.8);
-    --bg-glass: rgba(255, 255, 255, 0.05);
-    --border: rgba(255, 255, 255, 0.1);
+    --bg-primary: #0a0a12;
+    --bg-secondary: #12121f;
+    --bg-card: rgba(18, 18, 31, 0.9);
+    --bg-glass: rgba(255, 255, 255, 0.03);
+    --bg-hover: rgba(255, 255, 255, 0.08);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-light: rgba(255, 255, 255, 0.12);
     --text-primary: #ffffff;
     --text-secondary: #a1a1aa;
     --text-muted: #71717a;
@@ -35,12 +37,14 @@
     --gradient-success: linear-gradient(135deg, #10b981 0%, #34d399 100%);
     --gradient-danger: linear-gradient(135deg, #f43f5e 0%, #fb7185 100%);
     --gradient-card: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+    --gradient-shine: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%);
 
     /* Shadows */
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 16px 64px rgba(0, 0, 0, 0.5);
     --shadow-glow: 0 0 40px rgba(124, 58, 237, 0.3);
+    --shadow-glow-sm: 0 0 20px rgba(124, 58, 237, 0.2);
 
     /* Spacing */
     --sidebar-width: 280px;
@@ -48,6 +52,11 @@
     --radius-md: 12px;
     --radius-lg: 20px;
     --radius-xl: 28px;
+
+    /* Transitions */
+    --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body {
@@ -307,13 +316,34 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: var(--shadow-glow);
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow-glow-sm);
+    position: relative;
+    overflow: hidden;
+}
+
+.add-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
 }
 
 .add-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 60px rgba(124, 58, 237, 0.5);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: var(--shadow-glow);
+}
+
+.add-btn:hover::before {
+    left: 100%;
+}
+
+.add-btn:active {
+    transform: translateY(-1px) scale(0.98);
 }
 
 .add-icon {
@@ -357,6 +387,7 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 .stat-card {
     background: var(--bg-card);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-radius: var(--radius-lg);
     padding: 1.5rem;
     border: 1px solid var(--border);
@@ -365,12 +396,29 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     gap: 1rem;
     position: relative;
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: all var(--transition-normal);
+    cursor: default;
+}
+
+.stat-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: var(--gradient-shine);
+    transition: left 0.6s ease;
 }
 
 .stat-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-6px);
     box-shadow: var(--shadow-lg);
+    border-color: var(--border-light);
+}
+
+.stat-card:hover::after {
+    left: 100%;
 }
 
 .stat-card::before {
@@ -426,9 +474,25 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 .card {
     background: var(--bg-card);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
     padding: 1.5rem;
+    transition: all var(--transition-normal);
+    position: relative;
+}
+
+.card:hover {
+    border-color: var(--border-light);
+}
+
+.chart-card {
+    transition: all var(--transition-normal);
+}
+
+.chart-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
 }
 
 .card-header {
@@ -510,12 +574,31 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     background: var(--bg-glass);
     border-radius: var(--radius-md);
     border: 1px solid transparent;
-    transition: all 0.3s ease;
+    transition: all var(--transition-normal);
+    position: relative;
+}
+
+.transaction-item::before {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 0;
+    background: var(--gradient-primary);
+    border-radius: 3px;
+    transition: height var(--transition-fast);
 }
 
 .transaction-item:hover {
+    background: var(--bg-hover);
     border-color: var(--border);
     transform: translateX(-4px);
+}
+
+.transaction-item:hover::before {
+    height: 60%;
 }
 
 .transaction-right {
@@ -579,38 +662,48 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     gap: 0.5rem;
 }
 
-.edit-btn {
-    opacity: 1;
-    background: rgba(124, 58, 237, 0.1);
+.edit-btn,
+.delete-btn {
+    opacity: 0.8;
     border: none;
-    color: var(--primary);
     cursor: pointer;
     padding: 0.5rem 0.75rem;
     border-radius: var(--radius-sm);
-    transition: all 0.3s ease;
-    font-size: 0.875rem;
+    transition: all var(--transition-fast);
+    font-size: 0.8rem;
+    font-weight: 500;
+    font-family: inherit;
+}
+
+.edit-btn {
+    background: rgba(124, 58, 237, 0.1);
+    color: var(--primary-light);
 }
 
 .edit-btn:hover {
+    opacity: 1;
     background: var(--primary);
     color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
 }
 
 .delete-btn {
-    opacity: 1;
     background: rgba(244, 63, 94, 0.1);
-    border: none;
     color: var(--danger);
-    cursor: pointer;
-    padding: 0.5rem 0.75rem;
-    border-radius: var(--radius-sm);
-    transition: all 0.3s ease;
-    font-size: 0.875rem;
 }
 
 .delete-btn:hover {
+    opacity: 1;
     background: var(--danger);
     color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(244, 63, 94, 0.3);
+}
+
+.edit-btn:active,
+.delete-btn:active {
+    transform: translateY(0);
 }
 
 /* Empty State */
@@ -779,16 +872,20 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     z-index: 1000;
     align-items: center;
     justify-content: center;
     padding: 2rem;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
 }
 
 .modal-overlay.active {
     display: flex;
+    opacity: 1;
 }
 
 .modal {
@@ -796,14 +893,15 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     border-radius: var(--radius-xl);
     width: 100%;
     max-width: 480px;
-    border: 1px solid var(--border);
-    animation: modalIn 0.3s ease;
+    border: 1px solid var(--border-light);
+    animation: modalIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: var(--shadow-lg), 0 0 80px rgba(124, 58, 237, 0.15);
 }
 
 @keyframes modalIn {
     from {
         opacity: 0;
-        transform: scale(0.95) translateY(20px);
+        transform: scale(0.9) translateY(30px);
     }
     to {
         opacity: 1;
@@ -878,11 +976,37 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     color: var(--text-secondary);
     font-family: inherit;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+.type-btn::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    transform: scaleX(0);
+    transition: transform var(--transition-fast);
+}
+
+.type-btn.expense::before {
+    background: var(--danger);
+}
+
+.type-btn.income::before {
+    background: var(--success);
 }
 
 .type-btn:hover {
-    border-color: var(--text-muted);
+    border-color: var(--border-light);
+    background: var(--bg-hover);
+}
+
+.type-btn:hover::before {
+    transform: scaleX(0.5);
 }
 
 .type-btn.expense.active {
@@ -895,6 +1019,10 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     background: rgba(16, 185, 129, 0.1);
     border-color: var(--success);
     color: var(--success);
+}
+
+.type-btn.active::before {
+    transform: scaleX(1);
 }
 
 .type-icon {
@@ -917,18 +1045,30 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     width: 100%;
     padding: 0.875rem 1rem;
     background: var(--bg-glass);
-    border: 1px solid var(--border);
+    border: 2px solid var(--border);
     border-radius: var(--radius-md);
     color: var(--text-primary);
     font-family: inherit;
     font-size: 1rem;
-    transition: all 0.3s ease;
+    transition: all var(--transition-fast);
+}
+
+.form-group input:hover,
+.form-group select:hover {
+    border-color: var(--border-light);
+    background: var(--bg-hover);
 }
 
 .form-group input:focus,
 .form-group select:focus {
     outline: none;
     border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+    background: var(--bg-glass);
+}
+
+.form-group input::placeholder {
+    color: var(--text-muted);
 }
 
 .amount-input-wrapper {
@@ -957,22 +1097,30 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 .person-btn {
     padding: 0.75rem;
     background: var(--bg-glass);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
     color: var(--text-secondary);
     font-family: inherit;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all var(--transition-fast);
+    position: relative;
 }
 
 .person-btn:hover {
-    border-color: var(--text-muted);
+    border-color: var(--border-light);
+    background: var(--bg-hover);
+    transform: translateY(-2px);
 }
 
 .person-btn.active {
     background: var(--gradient-primary);
     border-color: transparent;
     color: white;
+    box-shadow: var(--shadow-glow-sm);
+}
+
+.person-btn:active {
+    transform: translateY(0) scale(0.98);
 }
 
 .form-actions {
@@ -992,11 +1140,16 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     font-size: 1rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all var(--transition-fast);
 }
 
 .btn-secondary:hover {
-    background: var(--border);
+    background: var(--bg-hover);
+    border-color: var(--border-light);
+}
+
+.btn-secondary:active {
+    transform: scale(0.98);
 }
 
 .btn-primary {
@@ -1010,12 +1163,33 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.4s ease;
 }
 
 .btn-primary:hover {
-    opacity: 0.9;
     transform: translateY(-2px);
+    box-shadow: var(--shadow-glow-sm);
+}
+
+.btn-primary:hover::before {
+    left: 100%;
+}
+
+.btn-primary:active {
+    transform: translateY(0) scale(0.98);
 }
 
 /* Toast */
@@ -1030,8 +1204,11 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     opacity: 0;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     z-index: 2000;
+    font-weight: 500;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 .toast.show {
@@ -1041,10 +1218,14 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 
 .toast.success {
     border-color: var(--success);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), var(--bg-secondary));
+    box-shadow: var(--shadow-lg), 0 0 30px rgba(16, 185, 129, 0.2);
 }
 
 .toast.error {
     border-color: var(--danger);
+    background: linear-gradient(135deg, rgba(244, 63, 94, 0.15), var(--bg-secondary));
+    box-shadow: var(--shadow-lg), 0 0 30px rgba(244, 63, 94, 0.2);
 }
 
 /* Avatar Styles */
@@ -1718,17 +1899,46 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 }
 
 .progress-bar {
-    height: 10px;
-    background: var(--bg-glass);
-    border-radius: 5px;
+    height: 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
     overflow: hidden;
+    position: relative;
+}
+
+.progress-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
 }
 
 .progress-fill {
     height: 100%;
     background: var(--gradient-success);
-    border-radius: 5px;
-    transition: width 0.5s ease;
+    border-radius: 4px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 20px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+    border-radius: 0 4px 4px 0;
 }
 
 .progress-fill.warning {
@@ -1737,6 +1947,12 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 
 .progress-fill.over {
     background: var(--gradient-danger);
+    animation: pulse-danger 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-danger {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
 }
 
 .budget-footer {
@@ -1872,6 +2088,110 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 
 .person-stat-row .income {
     color: var(--success);
+}
+
+/* ========================================
+   Recurring Transaction Styles
+   ======================================== */
+
+.recurring-group {
+    background: var(--bg-glass);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    border: 1px solid var(--border);
+}
+
+.toggle-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.toggle-text {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.toggle-switch {
+    position: relative;
+    width: 52px;
+    height: 28px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border);
+    transition: 0.3s;
+    border-radius: 28px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 2px;
+    bottom: 2px;
+    background: var(--text-muted);
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(24px);
+    background: white;
+}
+
+.recurring-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+    margin-bottom: 0;
+}
+
+.transaction-item.recurring {
+    border-right: 3px solid var(--primary);
+}
+
+.recurring-badge {
+    font-size: 0.8rem;
+    margin-right: 0.5rem;
+    vertical-align: middle;
+}
+
+.generated-label {
+    font-size: 0.7rem;
+    color: var(--primary-light);
+    background: rgba(124, 58, 237, 0.1);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+}
+
+.auto-generated-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    padding: 0.4rem 0.8rem;
+    background: var(--bg-glass);
+    border-radius: var(--radius-sm);
 }
 
 /* ========================================

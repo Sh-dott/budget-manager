@@ -6,9 +6,11 @@ const API_URL = '';
 // State
 let state = {
     transactions: [],
+    recurringTransactions: [],
     categories: { income: [], expense: [] },
     currentMonth: new Date(),
     currentType: 'expense',
+    isRecurring: false,
     avatars: {
         Shai: '',
         Gal: '',
@@ -382,12 +384,20 @@ function openModal(transaction = null) {
     const dateInput = document.getElementById('date');
     const modalTitle = document.querySelector('.modal-header h2');
     const submitBtn = document.querySelector('#transactionForm .btn-primary');
+    const recurringToggle = document.getElementById('recurringToggle');
 
     // Reset form
     document.getElementById('transactionForm').reset();
+    state.isRecurring = false;
+    if (recurringToggle) recurringToggle.checked = false;
 
     if (transaction) {
-        // Edit mode
+        // Edit mode - don't allow editing generated recurring transactions
+        if (transaction.isGenerated) {
+            showToast('לא ניתן לערוך תנועה קבועה שנוצרה אוטומטית', 'error');
+            return;
+        }
+
         modalTitle.textContent = 'עריכת תנועה';
         submitBtn.textContent = 'עדכן';
 
@@ -410,6 +420,10 @@ function openModal(transaction = null) {
         document.querySelectorAll('.person-btn').forEach(b => {
             b.classList.toggle('active', b.dataset.person === transaction.person);
         });
+
+        // Set recurring toggle
+        state.isRecurring = transaction.isRecurring || false;
+        if (recurringToggle) recurringToggle.checked = state.isRecurring;
     } else {
         // Create mode
         modalTitle.textContent = 'תנועה חדשה';
@@ -449,13 +463,15 @@ function updateCategorySelect() {
 async function handleFormSubmit(e) {
     e.preventDefault();
 
+    const recurringToggle = document.getElementById('recurringToggle');
     const transaction = {
         type: state.currentType,
         amount: parseFloat(document.getElementById('amount').value),
         category: document.getElementById('category').value,
         description: document.getElementById('description').value,
         date: document.getElementById('date').value,
-        person: document.querySelector('.person-btn.active').dataset.person
+        person: document.querySelector('.person-btn.active').dataset.person,
+        isRecurring: recurringToggle ? recurringToggle.checked : false
     };
 
     let success;
@@ -496,10 +512,52 @@ function getMonthTransactions() {
     const year = state.currentMonth.getFullYear();
     const month = state.currentMonth.getMonth();
 
-    return state.transactions.filter(t => {
+    // Get regular transactions for this month
+    const regularTransactions = state.transactions.filter(t => {
         const date = new Date(t.date);
         return date.getFullYear() === year && date.getMonth() === month;
     });
+
+    // Generate recurring transactions for this month (if not already exists)
+    const generatedRecurring = generateRecurringForMonth(year, month, regularTransactions);
+
+    return [...regularTransactions, ...generatedRecurring];
+}
+
+function generateRecurringForMonth(year, month, existingTransactions) {
+    const generated = [];
+    const recurringTemplates = state.transactions.filter(t => t.isRecurring);
+
+    for (const template of recurringTemplates) {
+        const templateDate = new Date(template.date);
+        const templateYear = templateDate.getFullYear();
+        const templateMonth = templateDate.getMonth();
+
+        // Don't generate for the original month or months before it
+        if (year < templateYear || (year === templateYear && month <= templateMonth)) {
+            continue;
+        }
+
+        // Check if a transaction with this recurring ID already exists for this month
+        const alreadyExists = existingTransactions.some(t =>
+            t.recurringSourceId === template.id ||
+            (t.id === template.id && new Date(t.date).getMonth() === month)
+        );
+
+        if (!alreadyExists) {
+            // Generate the transaction for this month
+            const day = Math.min(template.recurringDay || templateDate.getDate(), new Date(year, month + 1, 0).getDate());
+            generated.push({
+                ...template,
+                id: `recurring-${template.id}-${year}-${month}`,
+                date: `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+                isGenerated: true,
+                recurringSourceId: template.id
+            });
+        }
+    }
+
+    return generated;
 }
 
 function updateStats() {
@@ -568,19 +626,28 @@ function renderTransactions(container, transactions) {
         return;
     }
 
-    container.innerHTML = transactions.map(t => `
-        <div class="transaction-item">
+    container.innerHTML = transactions.map(t => {
+        const isGenerated = t.isGenerated;
+        const isRecurring = t.isRecurring;
+        const transactionId = typeof t.id === 'string' ? `'${t.id}'` : t.id;
+
+        return `
+        <div class="transaction-item ${isRecurring || isGenerated ? 'recurring' : ''}">
             <div class="transaction-right">
                 <div class="transaction-icon ${t.type}">
                     ${t.type === 'income' ? '📈' : '📉'}
                 </div>
                 <div class="transaction-details">
-                    <h4>${t.description || t.category}</h4>
+                    <h4>
+                        ${t.description || t.category}
+                        ${isRecurring || isGenerated ? '<span class="recurring-badge" title="תנועה קבועה">🔄</span>' : ''}
+                    </h4>
                     <div class="transaction-meta">
                         <span>${t.category}</span>
                         <span>•</span>
                         <span>${formatDate(t.date)}</span>
                         ${t.person ? `<span>•</span>${getPersonAvatar(t.person)}<span>${t.person}</span>` : ''}
+                        ${isGenerated ? '<span>•</span><span class="generated-label">נוצר אוטומטית</span>' : ''}
                     </div>
                 </div>
             </div>
@@ -589,16 +656,20 @@ function renderTransactions(container, transactions) {
                     ${t.type === 'income' ? '+' : '-'}${formatCurrency(t.amount)}
                 </span>
                 <div class="transaction-actions">
-                    <button class="edit-btn" onclick="editTransaction(${t.id})" title="ערוך">
-                        ערוך
-                    </button>
-                    <button class="delete-btn" onclick="deleteTransaction(${t.id})" title="מחק">
-                        מחק
-                    </button>
+                    ${!isGenerated ? `
+                        <button class="edit-btn" onclick="editTransaction(${transactionId})" title="ערוך">
+                            ערוך
+                        </button>
+                        <button class="delete-btn" onclick="deleteTransaction(${transactionId})" title="מחק">
+                            מחק
+                        </button>
+                    ` : `
+                        <span class="auto-generated-hint">קבוע</span>
+                    `}
                 </div>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 function updateCategories() {
