@@ -93,6 +93,9 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
                 radial-gradient(ellipse at bottom left, rgba(6, 182, 212, 0.1) 0%, transparent 50%);
     pointer-events: none;
     z-index: 0;
+    will-change: auto;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }
 
 .bg-blur {
@@ -256,6 +259,9 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     margin-right: var(--sidebar-width);
     padding: 2rem;
     min-height: 100vh;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
 }
 
 /* Top Bar */
@@ -354,16 +360,24 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 /* Views */
 .view {
     display: none;
+    opacity: 0;
 }
 
 .view.active {
     display: block;
-    animation: fadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 1;
+    animation: viewFadeIn 0.25s ease-out forwards;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
+@keyframes viewFadeIn {
+    from {
+        opacity: 0.85;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Smooth transitions for interactive elements */
