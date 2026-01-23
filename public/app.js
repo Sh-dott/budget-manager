@@ -13,7 +13,12 @@ let state = {
         Shai: '',
         Gal: '',
         Chubby: ''
-    }
+    },
+    budgets: {},
+    editingTransactionId: null,
+    searchQuery: '',
+    searchMinAmount: '',
+    searchMaxAmount: ''
 };
 
 // Hebrew month names
@@ -30,9 +35,11 @@ document.addEventListener('DOMContentLoaded', () => {
 async function init() {
     await loadData();
     await loadAvatars();
+    await loadBudgets();
     setupEventListeners();
     setupMobileMenu();
     setupAvatarUploads();
+    setupSearchListeners();
     updateUI();
 }
 
@@ -90,6 +97,171 @@ async function deleteTransaction(id) {
         console.error('Error deleting transaction:', error);
         showToast('שגיאה במחיקת התנועה', 'error');
     }
+}
+
+async function updateTransaction(id, transaction) {
+    try {
+        const response = await fetch(`${API_URL}/api/transactions/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(transaction)
+        });
+        const result = await response.json();
+        if (result.success) {
+            const index = state.transactions.findIndex(t => t.id === id);
+            if (index !== -1) {
+                state.transactions[index] = result.transaction;
+            }
+            updateUI();
+            showToast('התנועה עודכנה בהצלחה!', 'success');
+            return true;
+        }
+    } catch (error) {
+        console.error('Error updating transaction:', error);
+        showToast('שגיאה בעדכון התנועה', 'error');
+    }
+    return false;
+}
+
+function editTransaction(id) {
+    const transaction = state.transactions.find(t => t.id === id);
+    if (!transaction) return;
+
+    state.editingTransactionId = id;
+    openModal(transaction);
+}
+
+// Budget Functions
+async function loadBudgets() {
+    try {
+        const response = await fetch(`${API_URL}/api/budgets`);
+        const budgets = await response.json();
+        state.budgets = budgets || {};
+    } catch (error) {
+        console.error('Error loading budgets:', error);
+    }
+}
+
+async function saveBudget(category, amount) {
+    try {
+        const budgets = { ...state.budgets, [category]: amount };
+        delete budgets._id;
+
+        const response = await fetch(`${API_URL}/api/budgets`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ budgets })
+        });
+        const result = await response.json();
+        if (result.success) {
+            state.budgets = result.budgets;
+            updateUI();
+            showToast('התקציב נשמר', 'success');
+        }
+    } catch (error) {
+        console.error('Error saving budget:', error);
+        showToast('שגיאה בשמירת התקציב', 'error');
+    }
+}
+
+function getBudgetStatus() {
+    const transactions = getMonthTransactions();
+    const expensesByCategory = {};
+    const budgetStatus = [];
+
+    transactions.filter(t => t.type === 'expense').forEach(t => {
+        expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + t.amount;
+    });
+
+    for (const category of (state.categories.expense || [])) {
+        const spent = expensesByCategory[category] || 0;
+        const budget = state.budgets[category];
+        if (budget && budget > 0) {
+            const percentage = Math.round((spent / budget) * 100);
+            budgetStatus.push({
+                category,
+                spent,
+                budget,
+                percentage,
+                remaining: budget - spent,
+                isOver: spent > budget
+            });
+        }
+    }
+
+    return budgetStatus;
+}
+
+// Search Functions
+function setupSearchListeners() {
+    const searchInput = document.getElementById('searchInput');
+    const searchMinAmount = document.getElementById('searchMinAmount');
+    const searchMaxAmount = document.getElementById('searchMaxAmount');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            state.searchQuery = e.target.value;
+            updateTransactionsList();
+        });
+    }
+
+    if (searchMinAmount) {
+        searchMinAmount.addEventListener('input', (e) => {
+            state.searchMinAmount = e.target.value;
+            updateTransactionsList();
+        });
+    }
+
+    if (searchMaxAmount) {
+        searchMaxAmount.addEventListener('input', (e) => {
+            state.searchMaxAmount = e.target.value;
+            updateTransactionsList();
+        });
+    }
+}
+
+function filterTransactions(transactions) {
+    let filtered = [...transactions];
+
+    // Text search (description, category)
+    if (state.searchQuery) {
+        const query = state.searchQuery.toLowerCase();
+        filtered = filtered.filter(t =>
+            (t.description && t.description.toLowerCase().includes(query)) ||
+            (t.category && t.category.toLowerCase().includes(query)) ||
+            (t.person && t.person.toLowerCase().includes(query))
+        );
+    }
+
+    // Amount range filter
+    if (state.searchMinAmount) {
+        const min = parseFloat(state.searchMinAmount);
+        filtered = filtered.filter(t => t.amount >= min);
+    }
+
+    if (state.searchMaxAmount) {
+        const max = parseFloat(state.searchMaxAmount);
+        filtered = filtered.filter(t => t.amount <= max);
+    }
+
+    return filtered;
+}
+
+// Per-Person Analytics
+function calculatePersonStats() {
+    const transactions = getMonthTransactions();
+    const personStats = {};
+
+    transactions.forEach(t => {
+        const person = t.person || 'לא צוין';
+        if (!personStats[person]) {
+            personStats[person] = { income: 0, expense: 0, count: 0 };
+        }
+        personStats[person][t.type] += t.amount;
+        personStats[person].count++;
+    });
+
+    return personStats;
 }
 
 async function addCategory(type) {
@@ -205,24 +377,58 @@ function setupEventListeners() {
 }
 
 // Modal Functions
-function openModal() {
+function openModal(transaction = null) {
     const modal = document.getElementById('modal');
     const dateInput = document.getElementById('date');
+    const modalTitle = document.querySelector('.modal-header h2');
+    const submitBtn = document.querySelector('#transactionForm .btn-primary');
 
     // Reset form
     document.getElementById('transactionForm').reset();
-    document.querySelectorAll('.type-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.type === 'expense');
-    });
-    document.querySelectorAll('.person-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.person === 'Shai');
-    });
 
-    state.currentType = 'expense';
-    updateCategorySelect();
+    if (transaction) {
+        // Edit mode
+        modalTitle.textContent = 'עריכת תנועה';
+        submitBtn.textContent = 'עדכן';
 
-    // Set today's date
-    dateInput.value = new Date().toISOString().split('T')[0];
+        // Set type
+        state.currentType = transaction.type;
+        document.querySelectorAll('.type-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.type === transaction.type);
+        });
+
+        // Fill form fields
+        document.getElementById('amount').value = transaction.amount;
+        document.getElementById('description').value = transaction.description || '';
+        document.getElementById('date').value = transaction.date;
+
+        // Update category select and set value
+        updateCategorySelect();
+        document.getElementById('category').value = transaction.category;
+
+        // Set person
+        document.querySelectorAll('.person-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.person === transaction.person);
+        });
+    } else {
+        // Create mode
+        modalTitle.textContent = 'תנועה חדשה';
+        submitBtn.textContent = 'שמור';
+        state.editingTransactionId = null;
+
+        document.querySelectorAll('.type-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.type === 'expense');
+        });
+        document.querySelectorAll('.person-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.person === 'Shai');
+        });
+
+        state.currentType = 'expense';
+        updateCategorySelect();
+
+        // Set today's date
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
 
     modal.classList.add('active');
 }
@@ -252,8 +458,15 @@ async function handleFormSubmit(e) {
         person: document.querySelector('.person-btn.active').dataset.person
     };
 
-    const success = await saveTransaction(transaction);
+    let success;
+    if (state.editingTransactionId) {
+        success = await updateTransaction(state.editingTransactionId, transaction);
+    } else {
+        success = await saveTransaction(transaction);
+    }
+
     if (success) {
+        state.editingTransactionId = null;
         closeModal();
     }
 }
@@ -262,12 +475,15 @@ async function handleFormSubmit(e) {
 function updateUI() {
     updateMonthDisplay();
     updateStats();
+    updateBudgetAlerts();
+    updateBudgetProgress();
     updateRecentTransactions();
     updateTransactionsList();
     updateCategories();
     updateFilterOptions();
     updateCharts();
     updateAnalytics();
+    updatePersonChart();
 }
 
 function updateMonthDisplay() {
@@ -334,6 +550,9 @@ function updateTransactionsList() {
         transactions = transactions.filter(t => t.category === categoryFilter);
     }
 
+    // Apply search filters
+    transactions = filterTransactions(transactions);
+
     transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
     renderTransactions(container, transactions);
 }
@@ -369,9 +588,14 @@ function renderTransactions(container, transactions) {
                 <span class="transaction-amount ${t.type}">
                     ${t.type === 'income' ? '+' : '-'}${formatCurrency(t.amount)}
                 </span>
-                <button class="delete-btn" onclick="deleteTransaction(${t.id})" title="מחק">
-                    מחק
-                </button>
+                <div class="transaction-actions">
+                    <button class="edit-btn" onclick="editTransaction(${t.id})" title="ערוך">
+                        ערוך
+                    </button>
+                    <button class="delete-btn" onclick="deleteTransaction(${t.id})" title="מחק">
+                        מחק
+                    </button>
+                </div>
             </div>
         </div>
     `).join('');
@@ -543,6 +767,8 @@ function updateAnalytics() {
     updateTrendChart();
     updateComparisonChart();
     updateSummaryTable();
+    updatePersonStatsCards();
+    updateBudgetSettings();
 }
 
 function updateTrendChart() {
@@ -708,6 +934,171 @@ function updateSummaryTable() {
             </tbody>
         </table>
     `;
+}
+
+// Budget Alerts
+function updateBudgetAlerts() {
+    const container = document.getElementById('budgetAlerts');
+    if (!container) return;
+
+    const budgetStatus = getBudgetStatus();
+    const overBudget = budgetStatus.filter(b => b.isOver);
+
+    if (overBudget.length === 0) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    container.innerHTML = overBudget.map(b => `
+        <div class="budget-alert">
+            <span class="alert-icon">⚠️</span>
+            <span class="alert-text">
+                חריגה בקטגוריית <strong>${b.category}</strong>:
+                הוצאת ${formatCurrency(b.spent)} מתוך תקציב של ${formatCurrency(b.budget)}
+                (${b.percentage}%)
+            </span>
+        </div>
+    `).join('');
+}
+
+// Budget Progress
+function updateBudgetProgress() {
+    const container = document.getElementById('budgetProgress');
+    if (!container) return;
+
+    const budgetStatus = getBudgetStatus();
+
+    if (budgetStatus.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <p>לא הוגדרו תקציבים. הגדר תקציב בהגדרות.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = budgetStatus.map(b => `
+        <div class="budget-item">
+            <div class="budget-header">
+                <span class="budget-category">${b.category}</span>
+                <span class="budget-amounts">${formatCurrency(b.spent)} / ${formatCurrency(b.budget)}</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill ${b.isOver ? 'over' : b.percentage > 80 ? 'warning' : ''}"
+                     style="width: ${Math.min(b.percentage, 100)}%"></div>
+            </div>
+            <div class="budget-footer">
+                <span class="budget-remaining ${b.isOver ? 'over' : ''}">
+                    ${b.isOver ? `חריגה של ${formatCurrency(Math.abs(b.remaining))}` : `נותרו ${formatCurrency(b.remaining)}`}
+                </span>
+                <span class="budget-percentage">${b.percentage}%</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Person Analytics Chart
+function updatePersonChart() {
+    const ctx = document.getElementById('personChart');
+    if (!ctx) return;
+
+    const personStats = calculatePersonStats();
+    const labels = Object.keys(personStats);
+    const expenseData = labels.map(p => personStats[p].expense);
+
+    const colors = ['#7c3aed', '#06b6d4', '#10b981', '#f59e0b', '#f43f5e'];
+
+    if (charts.person) charts.person.destroy();
+
+    if (labels.length === 0) {
+        ctx.parentElement.innerHTML = '<div class="empty-state"><p>אין נתונים להצגה</p></div>';
+        return;
+    }
+
+    charts.person = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data: expenseData,
+                backgroundColor: colors.slice(0, labels.length),
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'left',
+                    rtl: true,
+                    labels: {
+                        color: '#a1a1aa',
+                        font: { family: 'Heebo' },
+                        padding: 15
+                    }
+                },
+                title: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+
+// Update Person Stats Cards
+function updatePersonStatsCards() {
+    const container = document.getElementById('personStatsCards');
+    if (!container) return;
+
+    const personStats = calculatePersonStats();
+
+    container.innerHTML = Object.entries(personStats).map(([person, stats]) => `
+        <div class="person-stat-card">
+            <div class="person-stat-header">
+                ${getPersonAvatar(person)}
+                <span class="person-stat-name">${person}</span>
+            </div>
+            <div class="person-stat-details">
+                <div class="person-stat-row">
+                    <span>הוצאות:</span>
+                    <span class="expense">${formatCurrency(stats.expense)}</span>
+                </div>
+                <div class="person-stat-row">
+                    <span>הכנסות:</span>
+                    <span class="income">${formatCurrency(stats.income)}</span>
+                </div>
+                <div class="person-stat-row">
+                    <span>מספר תנועות:</span>
+                    <span>${stats.count}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Budget Settings
+function updateBudgetSettings() {
+    const container = document.getElementById('budgetSettings');
+    if (!container) return;
+
+    const categories = state.categories.expense || [];
+
+    container.innerHTML = categories.map(cat => `
+        <div class="budget-setting-item">
+            <label>${cat}</label>
+            <div class="budget-input-wrapper">
+                <span class="currency-symbol">₪</span>
+                <input type="number"
+                       class="budget-input"
+                       value="${state.budgets[cat] || ''}"
+                       placeholder="ללא הגבלה"
+                       onchange="saveBudget('${cat}', this.value ? parseFloat(this.value) : 0)">
+            </div>
+        </div>
+    `).join('');
 }
 
 // Utilities
@@ -948,3 +1339,5 @@ function getPersonAvatar(person) {
 window.addCategory = addCategory;
 window.removeCategory = removeCategory;
 window.deleteTransaction = deleteTransaction;
+window.editTransaction = editTransaction;
+window.saveBudget = saveBudget;

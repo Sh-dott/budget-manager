@@ -574,6 +574,28 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     color: var(--danger);
 }
 
+.transaction-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.edit-btn {
+    opacity: 1;
+    background: rgba(124, 58, 237, 0.1);
+    border: none;
+    color: var(--primary);
+    cursor: pointer;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+    transition: all 0.3s ease;
+    font-size: 0.875rem;
+}
+
+.edit-btn:hover {
+    background: var(--primary);
+    color: white;
+}
+
 .delete-btn {
     opacity: 1;
     background: rgba(244, 63, 94, 0.1);
@@ -1542,5 +1564,357 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 
     .person-selector {
         grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ========================================
+   Search Bar Styles
+   ======================================== */
+
+.search-bar {
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-icon {
+    position: absolute;
+    right: 1rem;
+    font-size: 1rem;
+    color: var(--text-muted);
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    padding-right: 2.5rem;
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.search-input::placeholder {
+    color: var(--text-muted);
+}
+
+.search-filters {
+    display: flex;
+    gap: 1rem;
+}
+
+.amount-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.amount-filter-input {
+    width: 140px;
+    padding: 0.625rem 1rem;
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+}
+
+.amount-filter-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.amount-filter-input::placeholder {
+    color: var(--text-muted);
+}
+
+.amount-separator {
+    color: var(--text-muted);
+}
+
+/* ========================================
+   Budget Alerts Styles
+   ======================================== */
+
+.budget-alerts-container {
+    margin-bottom: 1.5rem;
+}
+
+.budget-alert {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: rgba(244, 63, 94, 0.1);
+    border: 1px solid var(--danger);
+    border-radius: var(--radius-md);
+    margin-bottom: 0.75rem;
+}
+
+.alert-icon {
+    font-size: 1.5rem;
+}
+
+.alert-text {
+    color: var(--danger);
+    font-size: 0.9rem;
+}
+
+.alert-text strong {
+    font-weight: 600;
+}
+
+/* ========================================
+   Budget Progress Styles
+   ======================================== */
+
+.budget-card {
+    margin-bottom: 2rem;
+}
+
+.budget-progress-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.budget-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.budget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.budget-category {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.budget-amounts {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.progress-bar {
+    height: 10px;
+    background: var(--bg-glass);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--gradient-success);
+    border-radius: 5px;
+    transition: width 0.5s ease;
+}
+
+.progress-fill.warning {
+    background: linear-gradient(135deg, var(--warning) 0%, #fbbf24 100%);
+}
+
+.progress-fill.over {
+    background: var(--gradient-danger);
+}
+
+.budget-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+}
+
+.budget-remaining {
+    color: var(--success);
+}
+
+.budget-remaining.over {
+    color: var(--danger);
+}
+
+.budget-percentage {
+    color: var(--text-muted);
+}
+
+/* ========================================
+   Budget Settings Styles
+   ======================================== */
+
+.budget-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.budget-setting-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.budget-setting-item label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.budget-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.budget-input-wrapper .currency-symbol {
+    position: absolute;
+    right: 1rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.budget-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    padding-right: 2.5rem;
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.budget-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.budget-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* ========================================
+   Person Analytics Styles
+   ======================================== */
+
+.person-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.person-stat-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    transition: all 0.3s ease;
+}
+
+.person-stat-card:hover {
+    border-color: var(--primary);
+}
+
+.person-stat-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.person-stat-name {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.person-stat-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.person-stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+}
+
+.person-stat-row span:first-child {
+    color: var(--text-secondary);
+}
+
+.person-stat-row .expense {
+    color: var(--danger);
+}
+
+.person-stat-row .income {
+    color: var(--success);
+}
+
+/* ========================================
+   Mobile Responsive Updates
+   ======================================== */
+
+@media (max-width: 768px) {
+    .search-filters {
+        flex-direction: column;
+    }
+
+    .amount-filter {
+        width: 100%;
+    }
+
+    .amount-filter-input {
+        flex: 1;
+        width: auto;
+    }
+
+    .budget-settings-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .person-stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .transaction-actions {
+        gap: 0.5rem;
+    }
+
+    .edit-btn, .delete-btn {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
+    }
+
+    .budget-alert {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .alert-text {
+        font-size: 0.85rem;
     }
 }

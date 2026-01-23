@@ -139,6 +139,18 @@
                     </div>
                 </div>
 
+                <!-- Budget Alerts -->
+                <div id="budgetAlerts" class="budget-alerts-container"></div>
+
+                <!-- Budget Progress -->
+                <div class="card budget-card">
+                    <div class="card-header">
+                        <h3>מעקב תקציב</h3>
+                        <a href="#" class="view-all" data-nav="settings">הגדרות</a>
+                    </div>
+                    <div id="budgetProgress" class="budget-progress-list"></div>
+                </div>
+
                 <!-- Recent Transactions -->
                 <div class="card recent-card">
                     <div class="card-header">
@@ -165,6 +177,20 @@
                             </select>
                         </div>
                     </div>
+                    <!-- Search Bar -->
+                    <div class="search-bar">
+                        <div class="search-input-wrapper">
+                            <span class="search-icon">🔍</span>
+                            <input type="text" id="searchInput" placeholder="חיפוש לפי תיאור, קטגוריה או אדם..." class="search-input">
+                        </div>
+                        <div class="search-filters">
+                            <div class="amount-filter">
+                                <input type="number" id="searchMinAmount" placeholder="סכום מינימלי" class="amount-filter-input">
+                                <span class="amount-separator">-</span>
+                                <input type="number" id="searchMaxAmount" placeholder="סכום מקסימלי" class="amount-filter-input">
+                            </div>
+                        </div>
+                    </div>
                     <div class="transactions-list" id="allTransactions"></div>
                 </div>
             </section>
@@ -187,6 +213,24 @@
                         <div class="chart-container large">
                             <canvas id="comparisonChart"></canvas>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Per-Person Analytics -->
+                <div class="analytics-grid">
+                    <div class="chart-card">
+                        <div class="card-header">
+                            <h3>הוצאות לפי אדם</h3>
+                        </div>
+                        <div class="chart-container large">
+                            <canvas id="personChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="card person-stats-card">
+                        <div class="card-header">
+                            <h3>סטטיסטיקות אישיות</h3>
+                        </div>
+                        <div id="personStatsCards" class="person-stats-grid"></div>
                     </div>
                 </div>
 
@@ -237,6 +281,15 @@
                             <input type="file" id="chubbyAvatarInput" accept="image/*" hidden>
                         </div>
                     </div>
+                </div>
+
+                <!-- Budget Settings -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>הגדרות תקציב</h3>
+                        <p class="card-subtitle">הגדר תקציב חודשי לכל קטגוריה</p>
+                    </div>
+                    <div id="budgetSettings" class="budget-settings-grid"></div>
                 </div>
             </section>
 

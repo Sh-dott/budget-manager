@@ -97,6 +97,29 @@ app.post('/api/transactions', async (req, res) => {
     }
 });
 
+// Update transaction
+app.put('/api/transactions/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const updates = {
+            type: req.body.type,
+            amount: req.body.amount,
+            category: req.body.category,
+            description: req.body.description,
+            date: req.body.date,
+            person: req.body.person,
+            updatedAt: new Date().toISOString()
+        };
+
+        await db.collection('transactions').updateOne({ id }, { $set: updates });
+        const transaction = await db.collection('transactions').findOne({ id });
+        res.json({ success: true, transaction });
+    } catch (error) {
+        console.error('Error updating transaction:', error);
+        res.status(500).json({ success: false, error: 'Failed to update transaction' });
+    }
+});
+
 // Delete transaction
 app.delete('/api/transactions/:id', async (req, res) => {
     try {
@@ -187,6 +210,36 @@ app.post('/api/avatars/:person', async (req, res) => {
     } catch (error) {
         console.error('Error saving avatar:', error);
         res.status(500).json({ success: false, error: 'Failed to save avatar' });
+    }
+});
+
+// Get budgets
+app.get('/api/budgets', async (req, res) => {
+    try {
+        const budgetsDoc = await db.collection('settings').findOne({ _id: 'budgets' });
+        res.json(budgetsDoc || { _id: 'budgets' });
+    } catch (error) {
+        console.error('Error fetching budgets:', error);
+        res.status(500).json({ error: 'Failed to fetch budgets' });
+    }
+});
+
+// Save budgets
+app.post('/api/budgets', async (req, res) => {
+    try {
+        const { budgets } = req.body;
+
+        await db.collection('settings').updateOne(
+            { _id: 'budgets' },
+            { $set: budgets },
+            { upsert: true }
+        );
+
+        const budgetsDoc = await db.collection('settings').findOne({ _id: 'budgets' });
+        res.json({ success: true, budgets: budgetsDoc });
+    } catch (error) {
+        console.error('Error saving budgets:', error);
+        res.status(500).json({ success: false, error: 'Failed to save budgets' });
     }
 });
 
