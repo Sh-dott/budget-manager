@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const { MongoClient, ObjectId } = require('mongodb');
 const path = require('path');
+const OpenAI = require('openai');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -240,6 +241,114 @@ app.post('/api/budgets', async (req, res) => {
     } catch (error) {
         console.error('Error saving budgets:', error);
         res.status(500).json({ success: false, error: 'Failed to save budgets' });
+    }
+});
+
+// AI Insights - Initialize OpenAI client
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+}) : null;
+
+// Get AI Insights
+app.post('/api/insights', async (req, res) => {
+    if (!openai) {
+        return res.status(503).json({
+            success: false,
+            error: 'AI insights not configured. Add OPENAI_API_KEY to .env file.'
+        });
+    }
+
+    try {
+        const { transactions, budgets, month, year } = req.body;
+
+        // Calculate summary data
+        const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+        const expenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+        const balance = income - expenses;
+
+        // Group expenses by category
+        const expensesByCategory = {};
+        transactions.filter(t => t.type === 'expense').forEach(t => {
+            expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + t.amount;
+        });
+
+        // Group by person
+        const expensesByPerson = {};
+        transactions.filter(t => t.type === 'expense').forEach(t => {
+            const person = t.person || 'לא צוין';
+            expensesByPerson[person] = (expensesByPerson[person] || 0) + t.amount;
+        });
+
+        // Check budget overruns
+        const budgetStatus = [];
+        for (const [category, spent] of Object.entries(expensesByCategory)) {
+            const budget = budgets[category];
+            if (budget && budget > 0) {
+                budgetStatus.push({
+                    category,
+                    spent,
+                    budget,
+                    percentage: Math.round((spent / budget) * 100),
+                    isOver: spent > budget
+                });
+            }
+        }
+
+        const prompt = `אתה יועץ פיננסי מומחה. נתח את הנתונים הבאים ותן תובנות והמלצות בעברית.
+
+נתוני חודש ${month}/${year}:
+- הכנסות: ₪${income.toLocaleString()}
+- הוצאות: ₪${expenses.toLocaleString()}
+- יתרה: ₪${balance.toLocaleString()}
+- אחוז חיסכון: ${income > 0 ? Math.round((balance / income) * 100) : 0}%
+
+הוצאות לפי קטגוריה:
+${Object.entries(expensesByCategory).map(([cat, amount]) => `- ${cat}: ₪${amount.toLocaleString()}`).join('\n')}
+
+הוצאות לפי אדם:
+${Object.entries(expensesByPerson).map(([person, amount]) => `- ${person}: ₪${amount.toLocaleString()}`).join('\n')}
+
+מצב תקציבים:
+${budgetStatus.length > 0 ? budgetStatus.map(b => `- ${b.category}: ${b.percentage}% (${b.isOver ? 'חריגה!' : 'בתקציב'})`).join('\n') : 'לא הוגדרו תקציבים'}
+
+מספר תנועות: ${transactions.length}
+
+תן:
+1. 🔍 ניתוח קצר של המצב הפיננסי (2-3 משפטים)
+2. ⚠️ אזהרות אם יש (חריגות תקציב, הוצאות גבוהות)
+3. 💡 3 המלצות קונקרטיות לשיפור
+4. 🎯 יעד לחודש הבא
+
+ענה בצורה תמציתית וידידותית.`;
+
+        const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'אתה יועץ פיננסי ידידותי ומקצועי. עונה תמיד בעברית בצורה תמציתית וברורה.'
+                },
+                { role: 'user', content: prompt }
+            ],
+            max_tokens: 800,
+            temperature: 0.7
+        });
+
+        res.json({
+            success: true,
+            insights: completion.choices[0].message.content,
+            summary: {
+                income,
+                expenses,
+                balance,
+                savingsRate: income > 0 ? Math.round((balance / income) * 100) : 0,
+                topCategory: Object.entries(expensesByCategory).sort((a, b) => b[1] - a[1])[0],
+                overBudget: budgetStatus.filter(b => b.isOver)
+            }
+        });
+    } catch (error) {
+        console.error('Error generating insights:', error);
+        res.status(500).json({ success: false, error: 'Failed to generate insights' });
     }
 });
 

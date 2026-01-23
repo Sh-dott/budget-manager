@@ -1335,9 +1335,90 @@ function getPersonAvatar(person) {
     }
 }
 
+// AI Insights
+async function getAIInsights() {
+    const container = document.getElementById('aiInsightsContent');
+    const btn = document.getElementById('getInsightsBtn');
+
+    if (!container) return;
+
+    // Show loading state
+    container.innerHTML = `
+        <div class="insights-loading">
+            <div class="loading-spinner"></div>
+            <p>מנתח את הנתונים...</p>
+        </div>
+    `;
+    if (btn) btn.disabled = true;
+
+    try {
+        const transactions = getMonthTransactions();
+        const response = await fetch(`${API_URL}/api/insights`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                transactions,
+                budgets: state.budgets,
+                month: state.currentMonth.getMonth() + 1,
+                year: state.currentMonth.getFullYear()
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            container.innerHTML = `
+                <div class="insights-content">
+                    ${formatInsights(result.insights)}
+                </div>
+                <div class="insights-footer">
+                    <span class="insights-timestamp">עודכן: ${new Date().toLocaleTimeString('he-IL')}</span>
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <div class="insights-error">
+                    <span class="error-icon">⚠️</span>
+                    <p>${result.error || 'שגיאה בקבלת תובנות'}</p>
+                    ${result.error?.includes('not configured') ? '<p class="setup-hint">הוסף OPENAI_API_KEY לקובץ .env</p>' : ''}
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error getting insights:', error);
+        container.innerHTML = `
+            <div class="insights-error">
+                <span class="error-icon">❌</span>
+                <p>שגיאה בחיבור לשרת</p>
+            </div>
+        `;
+    }
+
+    if (btn) btn.disabled = false;
+}
+
+function formatInsights(text) {
+    // Convert markdown-style formatting to HTML
+    return text
+        .split('\n')
+        .map(line => {
+            if (line.startsWith('###')) return `<h4>${line.replace('###', '').trim()}</h4>`;
+            if (line.startsWith('##')) return `<h3>${line.replace('##', '').trim()}</h3>`;
+            if (line.startsWith('#')) return `<h2>${line.replace('#', '').trim()}</h2>`;
+            if (line.startsWith('- ') || line.startsWith('* ')) return `<li>${line.substring(2)}</li>`;
+            if (line.match(/^\d+\./)) return `<li>${line.replace(/^\d+\./, '').trim()}</li>`;
+            if (line.trim() === '') return '<br>';
+            return `<p>${line}</p>`;
+        })
+        .join('')
+        .replace(/(<li>.*<\/li>)+/g, '<ul>$&</ul>')
+        .replace(/<\/ul><ul>/g, '');
+}
+
 // Make functions globally available
 window.addCategory = addCategory;
 window.removeCategory = removeCategory;
 window.deleteTransaction = deleteTransaction;
 window.editTransaction = editTransaction;
 window.saveBudget = saveBudget;
+window.getAIInsights = getAIInsights;
