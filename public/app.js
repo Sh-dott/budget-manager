@@ -732,35 +732,43 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
-// Mobile Menu
+// Mobile Navigation
 function setupMobileMenu() {
-    const menuToggle = document.getElementById('menuToggle');
-    const sidebar = document.querySelector('.sidebar');
+    // Mobile bottom navigation
+    const mobileNavItems = document.querySelectorAll('.mobile-nav-item[data-view]');
+    mobileNavItems.forEach(item => {
+        item.addEventListener('click', () => {
+            // Update active states
+            mobileNavItems.forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
 
-    // Create overlay
-    const overlay = document.createElement('div');
-    overlay.className = 'sidebar-overlay';
-    document.body.appendChild(overlay);
+            // Also update desktop nav
+            const viewId = item.dataset.view;
+            document.querySelectorAll('.nav-item').forEach(nav => {
+                nav.classList.toggle('active', nav.dataset.view === viewId);
+            });
 
-    if (menuToggle) {
-        menuToggle.addEventListener('click', () => {
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('open');
+            // Show the view
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(`${viewId}-view`).classList.add('active');
+
+            updateUI();
         });
-    }
-
-    overlay.addEventListener('click', () => {
-        sidebar.classList.remove('open');
-        overlay.classList.remove('open');
     });
 
-    // Close menu when nav item clicked on mobile
+    // Mobile add button
+    const mobileAddBtn = document.getElementById('mobileAddBtn');
+    if (mobileAddBtn) {
+        mobileAddBtn.addEventListener('click', openModal);
+    }
+
+    // Sync desktop nav clicks with mobile nav
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
-            if (window.innerWidth <= 768) {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('open');
-            }
+            const viewId = item.dataset.view;
+            mobileNavItems.forEach(mobileItem => {
+                mobileItem.classList.toggle('active', mobileItem.dataset.view === viewId);
+            });
         });
     });
 }

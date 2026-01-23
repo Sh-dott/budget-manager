@@ -62,11 +62,6 @@
         <main class="main">
             <!-- Top Bar -->
             <header class="topbar">
-                <button class="menu-toggle" id="menuToggle">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
                 <div class="month-nav">
                     <button class="month-btn" id="prevMonth">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -208,23 +203,28 @@
                 <div class="card">
                     <div class="card-header">
                         <h3>תמונות פרופיל</h3>
+                        <p class="card-subtitle">לחץ על התמונה לבחירת תמונה מהגלריה</p>
                     </div>
                     <div class="avatars-grid">
                         <div class="avatar-setting">
-                            <div class="avatar-preview" id="shaiAvatar">
-                                <span>S</span>
-                            </div>
+                            <label for="shaiAvatarInput" class="avatar-upload-label">
+                                <div class="avatar-preview" id="shaiAvatar">
+                                    <span>S</span>
+                                </div>
+                                <div class="avatar-edit-icon">📷</div>
+                            </label>
                             <h4>Shai</h4>
-                            <input type="file" id="shaiAvatarInput" accept="image/*" hidden>
-                            <button class="btn-secondary" onclick="document.getElementById('shaiAvatarInput').click()">בחר תמונה</button>
+                            <input type="file" id="shaiAvatarInput" accept="image/*" capture="environment" hidden>
                         </div>
                         <div class="avatar-setting">
-                            <div class="avatar-preview" id="galAvatar">
-                                <span>G</span>
-                            </div>
+                            <label for="galAvatarInput" class="avatar-upload-label">
+                                <div class="avatar-preview" id="galAvatar">
+                                    <span>G</span>
+                                </div>
+                                <div class="avatar-edit-icon">📷</div>
+                            </label>
                             <h4>Gal</h4>
-                            <input type="file" id="galAvatarInput" accept="image/*" hidden>
-                            <button class="btn-secondary" onclick="document.getElementById('galAvatarInput').click()">בחר תמונה</button>
+                            <input type="file" id="galAvatarInput" accept="image/*" capture="environment" hidden>
                         </div>
                     </div>
                 </div>
@@ -256,6 +256,29 @@
                 </div>
             </section>
         </main>
+
+        <!-- Mobile Bottom Navigation -->
+        <nav class="mobile-nav">
+            <button class="mobile-nav-item active" data-view="dashboard">
+                <span class="mobile-nav-icon">📊</span>
+                <span>סקירה</span>
+            </button>
+            <button class="mobile-nav-item" data-view="transactions">
+                <span class="mobile-nav-icon">💳</span>
+                <span>תנועות</span>
+            </button>
+            <button class="mobile-nav-item add-fab" id="mobileAddBtn">
+                <span class="mobile-nav-icon">+</span>
+            </button>
+            <button class="mobile-nav-item" data-view="analytics">
+                <span class="mobile-nav-icon">📈</span>
+                <span>ניתוח</span>
+            </button>
+            <button class="mobile-nav-item" data-view="settings">
+                <span class="mobile-nav-icon">⚙️</span>
+                <span>הגדרות</span>
+            </button>
+        </nav>
     </div>
 
     <!-- Add Transaction Modal -->
