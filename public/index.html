@@ -375,10 +375,54 @@
                     <div class="card-header">
                         <h3>🔍 השוואת מחירים</h3>
                     </div>
+
+                    <!-- Category Menu -->
+                    <div class="category-menu">
+                        <button class="category-btn" onclick="searchByCategory('מוצרי חלב')">
+                            <span class="cat-icon">🥛</span>
+                            <span>מוצרי חלב</span>
+                        </button>
+                        <button class="category-btn" onclick="searchByCategory('לחם ומאפים')">
+                            <span class="cat-icon">🍞</span>
+                            <span>לחם ומאפים</span>
+                        </button>
+                        <button class="category-btn" onclick="searchByCategory('פירות וירקות')">
+                            <span class="cat-icon">🥬</span>
+                            <span>פירות וירקות</span>
+                        </button>
+                        <button class="category-btn" onclick="searchByCategory('בשר ודגים')">
+                            <span class="cat-icon">🥩</span>
+                            <span>בשר ודגים</span>
+                        </button>
+                        <button class="category-btn" onclick="searchByCategory('שתייה')">
+                            <span class="cat-icon">🥤</span>
+                            <span>שתייה</span>
+                        </button>
+                        <button class="category-btn" onclick="searchByCategory('חטיפים')">
+                            <span class="cat-icon">🍿</span>
+                            <span>חטיפים</span>
+                        </button>
+                        <button class="category-btn" onclick="searchByCategory('מוצרי ניקיון')">
+                            <span class="cat-icon">🧹</span>
+                            <span>ניקיון</span>
+                        </button>
+                        <button class="category-btn" onclick="searchByCategory('תינוקות')">
+                            <span class="cat-icon">🍼</span>
+                            <span>תינוקות</span>
+                        </button>
+                    </div>
+
+                    <!-- Search Bar -->
                     <div class="price-search-wrapper">
-                        <input type="text" id="priceSearchInput" placeholder="חפש מוצר..." class="search-input">
+                        <input type="text" id="priceSearchInput" placeholder="חפש מוצר ספציפי..." class="search-input"
+                            onkeypress="if(event.key==='Enter') searchPrices()">
                         <button class="insights-btn" onclick="searchPrices()">חפש</button>
                     </div>
+
+                    <!-- Popular Products in Category -->
+                    <div id="categoryProducts" class="category-products" style="display: none;"></div>
+
+                    <!-- Search Results -->
                     <div id="priceSearchResults" class="price-search-results"></div>
                 </div>
 

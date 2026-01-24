@@ -829,7 +829,9 @@ app.get('/api/prices/search', async (req, res) => {
 
 תן הערכת מחירים לפי הפורמט הזה בדיוק (JSON):
 {
-  "product": "שם המוצר המדויק",
+  "product": "שם המוצר המדויק בעברית",
+  "productEnglish": "product name in english for image search",
+  "category": "קטגוריה (מוצרי חלב/לחם ומאפים/פירות וירקות/בשר ודגים/שתייה/חטיפים/מוצרי ניקיון/אחר)",
   "stores": [
     { "name": "שופרסל", "price": מחיר_משוער, "note": "הערה קצרה אופציונלית" },
     { "name": "רמי לוי", "price": מחיר_משוער, "note": "הערה קצרה אופציונלית" },
@@ -860,9 +862,16 @@ app.get('/api/prices/search', async (req, res) => {
             const cleanJson = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
             const parsed = JSON.parse(cleanJson);
 
+            // Generate image URL using a free image service
+            const imageQuery = encodeURIComponent(parsed.productEnglish || parsed.product);
+            const imageUrl = `https://source.unsplash.com/200x200/?${imageQuery},food,grocery`;
+
             results = {
                 query,
                 product: parsed.product,
+                productEnglish: parsed.productEnglish,
+                category: parsed.category,
+                image: imageUrl,
                 stores: parsed.stores.sort((a, b) => a.price - b.price), // Sort by price
                 tip: parsed.tip,
                 cheapest: parsed.cheapest,

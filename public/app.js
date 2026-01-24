@@ -2064,6 +2064,53 @@ async function removeShoppingItem(listId, itemId) {
 // Price Search
 // ========================================
 
+// Category products mapping
+const categoryProducts = {
+    'מוצרי חלב': ['חלב', 'גבינה צהובה', 'קוטג\'', 'יוגורט', 'שמנת', 'חמאה'],
+    'לחם ומאפים': ['לחם לבן', 'לחם מחיטה מלאה', 'פיתות', 'לחמניות', 'חלה', 'באגט'],
+    'פירות וירקות': ['עגבניות', 'מלפפונים', 'תפוחים', 'בננות', 'תפוזים', 'גזר'],
+    'בשר ודגים': ['חזה עוף', 'כרעיים', 'בשר טחון', 'סלמון', 'נקניקיות', 'שניצל'],
+    'שתייה': ['מים מינרליים', 'קולה', 'מיץ תפוזים', 'בירה', 'יין', 'סודה'],
+    'חטיפים': ['במבה', 'ביסלי', 'שוקולד', 'עוגיות', 'צ\'יפס', 'קרקר'],
+    'מוצרי ניקיון': ['אבקת כביסה', 'נוזל כלים', 'מרכך', 'אקונומיקה', 'נייר טואלט', 'מגבונים'],
+    'תינוקות': ['חיתולים', 'מטרנה', 'מגבונים לתינוק', 'שמפו לתינוק', 'בקבוק', 'מוצץ']
+};
+
+function searchByCategory(category) {
+    const productsContainer = document.getElementById('categoryProducts');
+    const resultsContainer = document.getElementById('priceSearchResults');
+
+    if (!productsContainer) return;
+
+    // Clear previous results
+    resultsContainer.innerHTML = '';
+
+    // Show category products
+    const products = categoryProducts[category] || [];
+
+    productsContainer.style.display = 'block';
+    productsContainer.innerHTML = `
+        <div class="category-header">
+            <h4>מוצרים פופולריים ב${category}</h4>
+        </div>
+        <div class="products-grid">
+            ${products.map(product => `
+                <button class="product-btn" onclick="searchProduct('${product}')">
+                    ${product}
+                </button>
+            `).join('')}
+        </div>
+    `;
+}
+
+function searchProduct(productName) {
+    const input = document.getElementById('priceSearchInput');
+    if (input) {
+        input.value = productName;
+    }
+    searchPrices();
+}
+
 async function searchPrices() {
     const input = document.getElementById('priceSearchInput');
     const results = document.getElementById('priceSearchResults');
@@ -2085,12 +2132,17 @@ async function searchPrices() {
             const data = result.results;
 
             if (data.stores && data.stores.length > 0) {
-                const cheapestStore = data.stores[0]; // Already sorted by price
-
                 results.innerHTML = `
                     <div class="price-results-container">
                         <div class="price-results-header">
-                            <span class="product-name">${data.product || query}</span>
+                            <div class="product-info">
+                                <img src="${data.image}" alt="${data.product}" class="product-image"
+                                     onerror="this.src='https://via.placeholder.com/80x80?text=🛒'">
+                                <div class="product-details">
+                                    <span class="product-name">${data.product || query}</span>
+                                    ${data.category ? `<span class="product-category">${data.category}</span>` : ''}
+                                </div>
+                            </div>
                             ${result.cached ? '<span class="cached-badge">מהמטמון</span>' : ''}
                         </div>
 
@@ -2114,6 +2166,10 @@ async function searchPrices() {
                             </div>
                         ` : ''}
 
+                        <button class="add-to-list-btn" onclick="addProductToShoppingList('${data.product}', ${data.stores[0].price})">
+                            ➕ הוסף לרשימת קניות
+                        </button>
+
                         <div class="price-disclaimer">${data.disclaimer || ''}</div>
                     </div>
                 `;
@@ -2128,6 +2184,32 @@ async function searchPrices() {
     } catch (error) {
         console.error('Error searching prices:', error);
         results.innerHTML = '<p class="tip-error">שגיאה בחיפוש מחירים</p>';
+    }
+}
+
+async function addProductToShoppingList(productName, price) {
+    // Find or create a default shopping list
+    if (shoppingLists.length === 0) {
+        await createNewShoppingList();
+    }
+
+    if (shoppingLists.length > 0) {
+        const listId = shoppingLists[0]._id;
+        try {
+            const response = await fetch(`${API_URL}/api/shopping-lists/${listId}/items`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: productName, quantity: 1, estimatedPrice: price })
+            });
+            const result = await response.json();
+            if (result.success) {
+                shoppingLists[0] = result.list;
+                showToast(`${productName} נוסף לרשימה!`, 'success');
+            }
+        } catch (error) {
+            console.error('Error adding to list:', error);
+            showToast('שגיאה בהוספה לרשימה', 'error');
+        }
     }
 }
 
@@ -2177,3 +2259,6 @@ window.addShoppingItem = addShoppingItem;
 window.toggleShoppingItem = toggleShoppingItem;
 window.removeShoppingItem = removeShoppingItem;
 window.searchPrices = searchPrices;
+window.searchByCategory = searchByCategory;
+window.searchProduct = searchProduct;
+window.addProductToShoppingList = addProductToShoppingList;
