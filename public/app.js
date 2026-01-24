@@ -2075,27 +2075,52 @@ async function searchPrices() {
         return;
     }
 
-    results.innerHTML = '<div class="widget-loading">🔍 מחפש מחירים...</div>';
+    results.innerHTML = '<div class="widget-loading">🔍 מחפש מחירים בסופרמרקטים...</div>';
 
     try {
         const response = await fetch(`${API_URL}/api/prices/search?q=${encodeURIComponent(query)}`);
         const result = await response.json();
 
         if (result.success) {
-            if (result.results.stores && result.results.stores.length > 0) {
+            const data = result.results;
+
+            if (data.stores && data.stores.length > 0) {
+                const cheapestStore = data.stores[0]; // Already sorted by price
+
                 results.innerHTML = `
-                    <div class="price-results-header">תוצאות עבור: ${query}</div>
-                    ${result.results.stores.map(store => `
-                        <div class="price-result-item">
-                            <span class="store-name">${store.name}</span>
-                            <span class="store-price">₪${store.price}</span>
+                    <div class="price-results-container">
+                        <div class="price-results-header">
+                            <span class="product-name">${data.product || query}</span>
+                            ${result.cached ? '<span class="cached-badge">מהמטמון</span>' : ''}
                         </div>
-                    `).join('')}
+
+                        <div class="stores-list">
+                            ${data.stores.map((store, index) => `
+                                <div class="price-result-item ${index === 0 ? 'cheapest' : ''}">
+                                    <div class="store-info">
+                                        <span class="store-name">${store.name}</span>
+                                        ${index === 0 ? '<span class="cheapest-badge">הכי זול! 🏆</span>' : ''}
+                                        ${store.note ? `<span class="store-note">${store.note}</span>` : ''}
+                                    </div>
+                                    <span class="store-price">₪${store.price.toFixed(2)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        ${data.tip ? `
+                            <div class="price-tip">
+                                <span class="tip-icon">💡</span>
+                                <span>${data.tip}</span>
+                            </div>
+                        ` : ''}
+
+                        <div class="price-disclaimer">${data.disclaimer || ''}</div>
+                    </div>
                 `;
             } else {
                 results.innerHTML = `
                     <div class="price-results-message">
-                        <p>${result.results.message || 'לא נמצאו תוצאות'}</p>
+                        <p>${data.message || 'לא נמצאו תוצאות'}</p>
                     </div>
                 `;
             }

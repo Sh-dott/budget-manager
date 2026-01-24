@@ -792,7 +792,7 @@ app.delete('/api/shopping-lists/:id/items/:itemId', async (req, res) => {
 });
 
 // ========================================
-// Price Search API (Israeli Supermarkets)
+// Price Search API (Using OpenAI for Israeli Price Estimates)
 // ========================================
 app.get('/api/prices/search', async (req, res) => {
     try {
@@ -802,7 +802,7 @@ app.get('/api/prices/search', async (req, res) => {
         }
 
         // Check cache (6 hour TTL)
-        const cacheKey = `price-search-${query.toLowerCase()}`;
+        const cacheKey = `price-search-${query.toLowerCase().trim()}`;
         const cached = await db.collection('cache').findOne({
             _id: cacheKey,
             expiresAt: { $gt: new Date() }
@@ -812,20 +812,77 @@ app.get('/api/prices/search', async (req, res) => {
             return res.json({ success: true, results: cached.results, cached: true });
         }
 
-        // Note: Israeli Supermarkets API integration would go here
-        // For now, return a placeholder with instructions
-        const results = {
-            query,
-            message: 'חיפוש מחירים זמין בקרוב. בינתיים, השתמש באפליקציות כמו Pricez או Super-Pharm.',
-            stores: []
-        };
+        // Use OpenAI to get price estimates
+        if (!openai) {
+            return res.json({
+                success: true,
+                results: {
+                    query,
+                    message: 'השוואת מחירים דורשת הגדרת OPENAI_API_KEY',
+                    stores: []
+                }
+            });
+        }
 
-        // Cache placeholder result
+        const prompt = `אתה מומחה למחירי מוצרים בסופרמרקטים בישראל.
+המשתמש מחפש: "${query}"
+
+תן הערכת מחירים לפי הפורמט הזה בדיוק (JSON):
+{
+  "product": "שם המוצר המדויק",
+  "stores": [
+    { "name": "שופרסל", "price": מחיר_משוער, "note": "הערה קצרה אופציונלית" },
+    { "name": "רמי לוי", "price": מחיר_משוער, "note": "הערה קצרה אופציונלית" },
+    { "name": "ויקטורי", "price": מחיר_משוער, "note": "הערה קצרה אופציונלית" },
+    { "name": "יינות ביתן", "price": מחיר_משוער, "note": "הערה קצרה אופציונלית" }
+  ],
+  "tip": "טיפ קצר לחיסכון",
+  "cheapest": "שם הרשת הזולה ביותר"
+}
+
+המחירים צריכים להיות ריאליסטיים למחירים בישראל ב-2024-2025.
+החזר רק JSON תקין, בלי טקסט נוסף.`;
+
+        const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+                { role: 'system', content: 'אתה עוזר שמחזיר רק JSON תקין. אל תוסיף הסברים או markdown.' },
+                { role: 'user', content: prompt }
+            ],
+            max_tokens: 500,
+            temperature: 0.3
+        });
+
+        let results;
+        try {
+            const responseText = completion.choices[0].message.content.trim();
+            // Clean up potential markdown code blocks
+            const cleanJson = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            const parsed = JSON.parse(cleanJson);
+
+            results = {
+                query,
+                product: parsed.product,
+                stores: parsed.stores.sort((a, b) => a.price - b.price), // Sort by price
+                tip: parsed.tip,
+                cheapest: parsed.cheapest,
+                disclaimer: 'המחירים הם הערכות בלבד. מומלץ לבדוק באתרי הרשתות.'
+            };
+        } catch (parseError) {
+            console.error('Error parsing OpenAI response:', parseError);
+            results = {
+                query,
+                message: 'לא הצלחנו לקבל מחירים. נסה שוב.',
+                stores: []
+            };
+        }
+
+        // Cache for 6 hours
         const expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + 6);
         await db.collection('cache').updateOne(
             { _id: cacheKey },
-            { $set: { results, expiresAt } },
+            { $set: { results, expiresAt, createdAt: new Date() } },
             { upsert: true }
         );
 
