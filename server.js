@@ -283,9 +283,19 @@ app.post('/api/budgets', async (req, res) => {
 });
 
 // AI Insights - Initialize OpenAI client
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-}) : null;
+let openai = null;
+try {
+    if (process.env.OPENAI_API_KEY) {
+        openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY
+        });
+        console.log('OpenAI client initialized');
+    } else {
+        console.log('OpenAI API key not configured - AI insights disabled');
+    }
+} catch (error) {
+    console.error('Error initializing OpenAI:', error.message);
+}
 
 // Get AI Insights
 app.post('/api/insights', async (req, res) => {
