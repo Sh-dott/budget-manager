@@ -345,7 +345,7 @@ function setupEventListeners() {
     });
 
     // Modal
-    document.getElementById('addTransactionBtn').addEventListener('click', openModal);
+    document.getElementById('addTransactionBtn').addEventListener('click', () => openModal());
     document.getElementById('closeModal').addEventListener('click', closeModal);
     document.getElementById('cancelBtn').addEventListener('click', closeModal);
     document.getElementById('modal').addEventListener('click', (e) => {
@@ -385,6 +385,11 @@ function openModal(transaction = null) {
     const modalTitle = document.querySelector('.modal-header h2');
     const submitBtn = document.querySelector('#transactionForm .btn-primary');
     const recurringToggle = document.getElementById('recurringToggle');
+
+    // Ensure transaction is a valid object (not an Event)
+    if (transaction && (transaction instanceof Event || !transaction.type || !transaction.amount)) {
+        transaction = null;
+    }
 
     // Reset form
     document.getElementById('transactionForm').reset();
@@ -1227,7 +1232,7 @@ function setupMobileMenu() {
     // Mobile add button
     const mobileAddBtn = document.getElementById('mobileAddBtn');
     if (mobileAddBtn) {
-        mobileAddBtn.addEventListener('click', openModal);
+        mobileAddBtn.addEventListener('click', () => openModal());
     }
 
     // Sync desktop nav clicks with mobile nav
