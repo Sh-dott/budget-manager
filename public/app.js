@@ -315,6 +315,7 @@ async function removeCategory(type, name) {
 
 // Event Listeners
 function setupEventListeners() {
+    try {
     // Navigation
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -360,27 +361,50 @@ function setupEventListeners() {
     // Type toggle
     document.querySelectorAll('.type-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            state.currentType = btn.dataset.type;
-            updateCategorySelect();
+            try {
+                document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const newType = btn.dataset.type;
+                if (newType === 'income' || newType === 'expense') {
+                    state.currentType = newType;
+                    updateCategorySelect();
+                }
+            } catch (error) {
+                console.error('Error switching type:', error);
+            }
         });
     });
 
     // Person selector
     document.querySelectorAll('.person-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            document.querySelectorAll('.person-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+            try {
+                document.querySelectorAll('.person-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            } catch (error) {
+                console.error('Error switching person:', error);
+            }
         });
     });
 
     // Form submit
-    document.getElementById('transactionForm').addEventListener('submit', handleFormSubmit);
+    const form = document.getElementById('transactionForm');
+    if (form) {
+        form.addEventListener('submit', handleFormSubmit);
+    }
 
     // Filters
-    document.getElementById('typeFilter').addEventListener('change', updateTransactionsList);
-    document.getElementById('categoryFilter').addEventListener('change', updateTransactionsList);
+    const typeFilter = document.getElementById('typeFilter');
+    const categoryFilter = document.getElementById('categoryFilter');
+    if (typeFilter) {
+        typeFilter.addEventListener('change', updateTransactionsList);
+    }
+    if (categoryFilter) {
+        categoryFilter.addEventListener('change', updateTransactionsList);
+    }
+    } catch (error) {
+        console.error('Error setting up event listeners:', error);
+    }
 }
 
 // Modal Functions
@@ -480,12 +504,23 @@ function closeModal() {
 }
 
 function updateCategorySelect() {
-    const select = document.getElementById('category');
-    const categories = state.categories[state.currentType] || [];
+    try {
+        const select = document.getElementById('category');
+        if (!select) {
+            console.warn('Category select element not found');
+            return;
+        }
 
-    select.innerHTML = categories.map(cat =>
-        `<option value="${cat}">${cat}</option>`
-    ).join('');
+        const categories = state.categories && state.categories[state.currentType]
+            ? state.categories[state.currentType]
+            : [];
+
+        select.innerHTML = categories.map(cat =>
+            `<option value="${cat}">${cat}</option>`
+        ).join('');
+    } catch (error) {
+        console.error('Error updating category select:', error);
+    }
 }
 
 async function handleFormSubmit(e) {
