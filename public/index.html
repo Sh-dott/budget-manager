@@ -44,6 +44,10 @@
                     <span class="nav-icon">🏷️</span>
                     <span>קטגוריות</span>
                 </li>
+                <li class="nav-item" data-view="shopping">
+                    <span class="nav-icon">🛒</span>
+                    <span>רשימות קניות</span>
+                </li>
                 <li class="nav-item" data-view="settings">
                     <span class="nav-icon">⚙️</span>
                     <span>הגדרות</span>
@@ -83,6 +87,30 @@
 
             <!-- Dashboard View -->
             <section class="view active" id="dashboard-view">
+                <!-- AI Insights Widgets Row -->
+                <div class="ai-widgets-row">
+                    <!-- Daily Tips Widget -->
+                    <div class="ai-widget daily-tips-widget">
+                        <div class="widget-header">
+                            <h4>💡 טיפ חיסכון יומי</h4>
+                            <button class="widget-refresh-btn" onclick="refreshDailyTips()" title="רענן">🔄</button>
+                        </div>
+                        <div id="dailyTipContent" class="widget-content">
+                            <div class="widget-loading">טוען...</div>
+                        </div>
+                    </div>
+
+                    <!-- Anomaly Detection Widget -->
+                    <div class="ai-widget anomaly-widget">
+                        <div class="widget-header">
+                            <h4>⚠️ התראות חריגה</h4>
+                        </div>
+                        <div id="anomalyContent" class="widget-content">
+                            <div class="widget-loading">בודק...</div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Stats Cards -->
                 <div class="stats-grid">
                     <div class="stat-card balance-card">
@@ -307,6 +335,60 @@
                     </div>
                     <div id="budgetSettings" class="budget-settings-grid"></div>
                 </div>
+
+                <!-- AI Budget Recommendations -->
+                <div class="card ai-recommendations-card">
+                    <div class="card-header">
+                        <h3>🤖 המלצות תקציב חכמות</h3>
+                        <button class="insights-btn" onclick="loadBudgetRecommendations()">חשב המלצות</button>
+                    </div>
+                    <div id="budgetRecommendations" class="recommendations-list">
+                        <div class="recommendations-placeholder">
+                            <span class="placeholder-icon">📊</span>
+                            <p>לחץ על "חשב המלצות" לקבלת הצעות תקציב מבוססות היסטוריה</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Shopping Lists View -->
+            <section class="view" id="shopping-view">
+                <div class="shopping-header">
+                    <h2>🛒 רשימות קניות</h2>
+                    <button class="add-btn" onclick="createNewShoppingList()">
+                        <span class="add-icon">+</span>
+                        <span>רשימה חדשה</span>
+                    </button>
+                </div>
+
+                <!-- Active Shopping Lists -->
+                <div id="shoppingLists" class="shopping-lists-container">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🛍️</div>
+                        <p>אין רשימות קניות</p>
+                        <button class="add-category-btn" onclick="createNewShoppingList()">צור רשימה ראשונה</button>
+                    </div>
+                </div>
+
+                <!-- Price Search -->
+                <div class="card price-search-card">
+                    <div class="card-header">
+                        <h3>🔍 השוואת מחירים</h3>
+                    </div>
+                    <div class="price-search-wrapper">
+                        <input type="text" id="priceSearchInput" placeholder="חפש מוצר..." class="search-input">
+                        <button class="insights-btn" onclick="searchPrices()">חפש</button>
+                    </div>
+                    <div id="priceSearchResults" class="price-search-results"></div>
+                </div>
+
+                <!-- Deal Alerts Banner -->
+                <div id="dealAlertsBanner" class="deal-alerts-banner" style="display: none;">
+                    <div class="deal-alert-header">
+                        <span>🏷️ מבצעים שאולי יעניינו אותך</span>
+                    </div>
+                    <div id="dealAlertsList" class="deal-alerts-list"></div>
+                </div>
             </section>
 
             <!-- Categories View -->
@@ -349,9 +431,9 @@
             <button class="mobile-nav-item add-fab" id="mobileAddBtn">
                 <span class="mobile-nav-icon">+</span>
             </button>
-            <button class="mobile-nav-item" data-view="analytics">
-                <span class="mobile-nav-icon">📈</span>
-                <span>ניתוח</span>
+            <button class="mobile-nav-item" data-view="shopping">
+                <span class="mobile-nav-icon">🛒</span>
+                <span>קניות</span>
             </button>
             <button class="mobile-nav-item" data-view="settings">
                 <span class="mobile-nav-icon">⚙️</span>
@@ -368,6 +450,16 @@
                 <button class="close-modal" id="closeModal">&times;</button>
             </div>
             <form id="transactionForm">
+                <!-- Receipt Scanner -->
+                <div class="receipt-scanner">
+                    <input type="file" id="receiptInput" accept="image/*" capture="environment" hidden>
+                    <button type="button" class="scan-receipt-btn" onclick="triggerReceiptScan()">
+                        <span>📷</span>
+                        <span>סרוק קבלה</span>
+                    </button>
+                    <div id="receiptScanStatus" class="scan-status" style="display: none;"></div>
+                </div>
+
                 <div class="type-selector">
                     <button type="button" class="type-btn expense active" data-type="expense">
                         <span class="type-icon">📉</span>
@@ -447,6 +539,8 @@
     <div class="toast" id="toast"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Tesseract.js for OCR (lazy loaded) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
     <script src="app.js"></script>
 </body>
 </html>

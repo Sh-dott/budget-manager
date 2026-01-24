@@ -400,6 +400,442 @@ ${budgetStatus.length > 0 ? budgetStatus.map(b => `- ${b.category}: ${b.percenta
     }
 });
 
+// ========================================
+// AI Insights - Daily Tips Widget
+// ========================================
+app.post('/api/insights/daily-tips', async (req, res) => {
+    try {
+        // Check cache first (24 hour TTL)
+        const cachedTip = await db.collection('cache').findOne({
+            _id: 'daily-tip',
+            expiresAt: { $gt: new Date() }
+        });
+
+        if (cachedTip) {
+            return res.json({ success: true, tip: cachedTip.tip, cached: true });
+        }
+
+        // Get last 7 days of transactions
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const dateStr = sevenDaysAgo.toISOString().split('T')[0];
+
+        const transactions = await db.collection('transactions')
+            .find({ date: { $gte: dateStr }, type: 'expense' })
+            .toArray();
+
+        if (transactions.length === 0) {
+            return res.json({
+                success: true,
+                tip: '💡 אין מספיק נתונים מהשבוע האחרון. המשך לתעד את ההוצאות שלך!',
+                cached: false
+            });
+        }
+
+        // Analyze spending by category
+        const categorySpending = {};
+        let totalSpent = 0;
+        transactions.forEach(t => {
+            categorySpending[t.category] = (categorySpending[t.category] || 0) + t.amount;
+            totalSpent += t.amount;
+        });
+
+        // Find highest spending category
+        const topCategory = Object.entries(categorySpending)
+            .sort((a, b) => b[1] - a[1])[0];
+
+        // Generate tip using OpenAI if available
+        let tip;
+        if (openai) {
+            const prompt = `אתה יועץ פיננסי. בשבוע האחרון המשתמש הוציא ₪${totalSpent.toLocaleString()} בסך הכל.
+הקטגוריה הכי יקרה: ${topCategory[0]} (₪${topCategory[1].toLocaleString()}).
+התפלגות הוצאות: ${Object.entries(categorySpending).map(([k, v]) => `${k}: ₪${v.toLocaleString()}`).join(', ')}.
+
+תן טיפ חיסכון אחד קצר ומעשי בעברית (עד 50 מילים). התמקד בקטגוריה הגבוהה ביותר.`;
+
+            const completion = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [
+                    { role: 'system', content: 'אתה יועץ פיננסי ידידותי. עונה בעברית בתמציתיות.' },
+                    { role: 'user', content: prompt }
+                ],
+                max_tokens: 150,
+                temperature: 0.7
+            });
+            tip = completion.choices[0].message.content;
+        } else {
+            // Fallback tips based on category
+            const tips = {
+                'מזון וקניות': `💡 הוצאת ₪${topCategory[1].toLocaleString()} על מזון השבוע. נסה לתכנן רשימת קניות מראש ולהימנע מקניות אימפולסיביות.`,
+                'מסעדות ובתי קפה': `💡 הוצאת ₪${topCategory[1].toLocaleString()} על אוכל בחוץ. נסה להכין אוכל בבית לפחות פעמיים בשבוע.`,
+                'תחבורה ודלק': `💡 הוצאת ₪${topCategory[1].toLocaleString()} על תחבורה. שקול שימוש בתחבורה ציבורית או שיתוף נסיעות.`,
+                'בילויים': `💡 הוצאת ₪${topCategory[1].toLocaleString()} על בילויים. חפש אירועים חינמיים או הנחות לפני שאתה יוצא.`,
+                'קניות ואופנה': `💡 הוצאת ₪${topCategory[1].toLocaleString()} על קניות. המתן 24 שעות לפני רכישות גדולות.`
+            };
+            tip = tips[topCategory[0]] || `💡 הקטגוריה הגבוהה ביותר שלך השבוע: ${topCategory[0]} (₪${topCategory[1].toLocaleString()}). נסה להגדיר תקציב לקטגוריה זו.`;
+        }
+
+        // Cache for 24 hours
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
+        await db.collection('cache').updateOne(
+            { _id: 'daily-tip' },
+            { $set: { tip, expiresAt, createdAt: new Date() } },
+            { upsert: true }
+        );
+
+        res.json({ success: true, tip, cached: false });
+    } catch (error) {
+        console.error('Error generating daily tip:', error);
+        res.status(500).json({ success: false, error: 'Failed to generate tip' });
+    }
+});
+
+// ========================================
+// AI Insights - Anomaly Detection
+// ========================================
+app.post('/api/insights/anomalies', async (req, res) => {
+    try {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
+        // Get 6 months of transaction data
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        const startDate = sixMonthsAgo.toISOString().split('T')[0];
+
+        const transactions = await db.collection('transactions')
+            .find({ date: { $gte: startDate }, type: 'expense' })
+            .toArray();
+
+        // Group by month and category
+        const monthlyByCategory = {};
+        const currentMonthSpending = {};
+
+        transactions.forEach(t => {
+            const tDate = new Date(t.date);
+            const monthKey = `${tDate.getFullYear()}-${tDate.getMonth()}`;
+            const isCurrentMonth = tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
+
+            if (!monthlyByCategory[t.category]) {
+                monthlyByCategory[t.category] = {};
+            }
+            monthlyByCategory[t.category][monthKey] = (monthlyByCategory[t.category][monthKey] || 0) + t.amount;
+
+            if (isCurrentMonth) {
+                currentMonthSpending[t.category] = (currentMonthSpending[t.category] || 0) + t.amount;
+            }
+        });
+
+        // Calculate anomalies
+        const anomalies = [];
+
+        for (const [category, monthlyData] of Object.entries(monthlyByCategory)) {
+            const currentMonthKey = `${currentYear}-${currentMonth}`;
+            const currentAmount = currentMonthSpending[category] || 0;
+
+            // Get historical data (excluding current month)
+            const historicalAmounts = Object.entries(monthlyData)
+                .filter(([key]) => key !== currentMonthKey)
+                .map(([, amount]) => amount);
+
+            if (historicalAmounts.length < 2) continue;
+
+            // Calculate mean and standard deviation
+            const mean = historicalAmounts.reduce((a, b) => a + b, 0) / historicalAmounts.length;
+            const variance = historicalAmounts.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / historicalAmounts.length;
+            const stdDev = Math.sqrt(variance);
+
+            // Check if current month is anomalous (> mean + 1.5 * stdDev)
+            const threshold = mean + (1.5 * stdDev);
+
+            if (currentAmount > threshold && currentAmount > 0) {
+                const severity = currentAmount > (mean + 3 * stdDev) ? 'high' :
+                                currentAmount > (mean + 2 * stdDev) ? 'medium' : 'low';
+
+                anomalies.push({
+                    category,
+                    currentAmount,
+                    average: Math.round(mean),
+                    difference: Math.round(currentAmount - mean),
+                    percentageOver: Math.round(((currentAmount - mean) / mean) * 100),
+                    severity
+                });
+            }
+        }
+
+        // Sort by severity and amount
+        anomalies.sort((a, b) => {
+            const severityOrder = { high: 0, medium: 1, low: 2 };
+            if (severityOrder[a.severity] !== severityOrder[b.severity]) {
+                return severityOrder[a.severity] - severityOrder[b.severity];
+            }
+            return b.difference - a.difference;
+        });
+
+        res.json({ success: true, anomalies });
+    } catch (error) {
+        console.error('Error detecting anomalies:', error);
+        res.status(500).json({ success: false, error: 'Failed to detect anomalies' });
+    }
+});
+
+// ========================================
+// AI Insights - Budget Recommendations
+// ========================================
+app.post('/api/insights/budget-recommendations', async (req, res) => {
+    try {
+        // Get current budgets
+        const budgetsDoc = await db.collection('settings').findOne({ _id: 'budgets' });
+        const currentBudgets = budgetsDoc || {};
+
+        // Get 6 months of transaction data
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        const startDate = sixMonthsAgo.toISOString().split('T')[0];
+
+        const transactions = await db.collection('transactions')
+            .find({ date: { $gte: startDate }, type: 'expense' })
+            .toArray();
+
+        // Calculate monthly averages per category
+        const categoryData = {};
+
+        transactions.forEach(t => {
+            const tDate = new Date(t.date);
+            const monthKey = `${tDate.getFullYear()}-${tDate.getMonth()}`;
+
+            if (!categoryData[t.category]) {
+                categoryData[t.category] = { months: {}, total: 0 };
+            }
+            categoryData[t.category].months[monthKey] = (categoryData[t.category].months[monthKey] || 0) + t.amount;
+            categoryData[t.category].total += t.amount;
+        });
+
+        // Generate recommendations
+        const recommendations = [];
+
+        for (const [category, data] of Object.entries(categoryData)) {
+            const monthCount = Object.keys(data.months).length;
+            if (monthCount < 2) continue;
+
+            const monthlyAverage = data.total / monthCount;
+            const suggestedBudget = Math.round(monthlyAverage * 1.15); // 15% buffer
+            const currentBudget = currentBudgets[category] || 0;
+
+            const recommendation = {
+                category,
+                monthlyAverage: Math.round(monthlyAverage),
+                suggestedBudget,
+                currentBudget,
+                reasoning: `מבוסס על ממוצע של ${monthCount} חודשים: ₪${Math.round(monthlyAverage).toLocaleString()}`
+            };
+
+            // Determine if under-budgeted
+            if (currentBudget > 0 && currentBudget < monthlyAverage) {
+                recommendation.status = 'under-budgeted';
+                recommendation.urgency = 'high';
+            } else if (currentBudget === 0) {
+                recommendation.status = 'no-budget';
+                recommendation.urgency = 'medium';
+            } else if (suggestedBudget < currentBudget * 0.8) {
+                recommendation.status = 'over-budgeted';
+                recommendation.urgency = 'low';
+            } else {
+                recommendation.status = 'optimal';
+                recommendation.urgency = 'none';
+            }
+
+            recommendations.push(recommendation);
+        }
+
+        // Sort by urgency
+        const urgencyOrder = { high: 0, medium: 1, low: 2, none: 3 };
+        recommendations.sort((a, b) => urgencyOrder[a.urgency] - urgencyOrder[b.urgency]);
+
+        res.json({ success: true, recommendations });
+    } catch (error) {
+        console.error('Error generating recommendations:', error);
+        res.status(500).json({ success: false, error: 'Failed to generate recommendations' });
+    }
+});
+
+// ========================================
+// Shopping Lists API
+// ========================================
+
+// Get all shopping lists
+app.get('/api/shopping-lists', async (req, res) => {
+    try {
+        const lists = await db.collection('shoppingLists').find({}).sort({ createdAt: -1 }).toArray();
+        res.json({ success: true, lists });
+    } catch (error) {
+        console.error('Error fetching shopping lists:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch shopping lists' });
+    }
+});
+
+// Create shopping list
+app.post('/api/shopping-lists', async (req, res) => {
+    try {
+        const list = {
+            name: req.body.name || 'רשימת קניות חדשה',
+            items: [],
+            createdAt: new Date(),
+            totalEstimate: 0
+        };
+        const result = await db.collection('shoppingLists').insertOne(list);
+        list._id = result.insertedId;
+        res.json({ success: true, list });
+    } catch (error) {
+        console.error('Error creating shopping list:', error);
+        res.status(500).json({ success: false, error: 'Failed to create shopping list' });
+    }
+});
+
+// Delete shopping list
+app.delete('/api/shopping-lists/:id', async (req, res) => {
+    try {
+        await db.collection('shoppingLists').deleteOne({ _id: new ObjectId(req.params.id) });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting shopping list:', error);
+        res.status(500).json({ success: false, error: 'Failed to delete shopping list' });
+    }
+});
+
+// Add item to shopping list
+app.post('/api/shopping-lists/:id/items', async (req, res) => {
+    try {
+        const item = {
+            id: Date.now(),
+            name: req.body.name,
+            quantity: req.body.quantity || 1,
+            checked: false,
+            estimatedPrice: req.body.estimatedPrice || 0
+        };
+
+        const result = await db.collection('shoppingLists').findOneAndUpdate(
+            { _id: new ObjectId(req.params.id) },
+            {
+                $push: { items: item },
+                $inc: { totalEstimate: item.estimatedPrice * item.quantity }
+            },
+            { returnDocument: 'after' }
+        );
+
+        res.json({ success: true, list: result });
+    } catch (error) {
+        console.error('Error adding item:', error);
+        res.status(500).json({ success: false, error: 'Failed to add item' });
+    }
+});
+
+// Update item in shopping list
+app.put('/api/shopping-lists/:id/items/:itemId', async (req, res) => {
+    try {
+        const listId = new ObjectId(req.params.id);
+        const itemId = parseInt(req.params.itemId);
+
+        // Get current list to find the item
+        const list = await db.collection('shoppingLists').findOne({ _id: listId });
+        const itemIndex = list.items.findIndex(i => i.id === itemId);
+
+        if (itemIndex === -1) {
+            return res.status(404).json({ success: false, error: 'Item not found' });
+        }
+
+        // Update the item
+        const updatedItem = { ...list.items[itemIndex], ...req.body };
+        list.items[itemIndex] = updatedItem;
+
+        // Recalculate total estimate
+        const totalEstimate = list.items.reduce((sum, i) =>
+            sum + ((i.estimatedPrice || 0) * (i.quantity || 1)), 0);
+
+        await db.collection('shoppingLists').updateOne(
+            { _id: listId },
+            { $set: { items: list.items, totalEstimate } }
+        );
+
+        res.json({ success: true, item: updatedItem });
+    } catch (error) {
+        console.error('Error updating item:', error);
+        res.status(500).json({ success: false, error: 'Failed to update item' });
+    }
+});
+
+// Delete item from shopping list
+app.delete('/api/shopping-lists/:id/items/:itemId', async (req, res) => {
+    try {
+        const listId = new ObjectId(req.params.id);
+        const itemId = parseInt(req.params.itemId);
+
+        const list = await db.collection('shoppingLists').findOne({ _id: listId });
+        const item = list.items.find(i => i.id === itemId);
+        const priceReduction = item ? (item.estimatedPrice || 0) * (item.quantity || 1) : 0;
+
+        await db.collection('shoppingLists').updateOne(
+            { _id: listId },
+            {
+                $pull: { items: { id: itemId } },
+                $inc: { totalEstimate: -priceReduction }
+            }
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting item:', error);
+        res.status(500).json({ success: false, error: 'Failed to delete item' });
+    }
+});
+
+// ========================================
+// Price Search API (Israeli Supermarkets)
+// ========================================
+app.get('/api/prices/search', async (req, res) => {
+    try {
+        const query = req.query.q;
+        if (!query) {
+            return res.status(400).json({ success: false, error: 'Query required' });
+        }
+
+        // Check cache (6 hour TTL)
+        const cacheKey = `price-search-${query.toLowerCase()}`;
+        const cached = await db.collection('cache').findOne({
+            _id: cacheKey,
+            expiresAt: { $gt: new Date() }
+        });
+
+        if (cached) {
+            return res.json({ success: true, results: cached.results, cached: true });
+        }
+
+        // Note: Israeli Supermarkets API integration would go here
+        // For now, return a placeholder with instructions
+        const results = {
+            query,
+            message: 'חיפוש מחירים זמין בקרוב. בינתיים, השתמש באפליקציות כמו Pricez או Super-Pharm.',
+            stores: []
+        };
+
+        // Cache placeholder result
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 6);
+        await db.collection('cache').updateOne(
+            { _id: cacheKey },
+            { $set: { results, expiresAt } },
+            { upsert: true }
+        );
+
+        res.json({ success: true, results, cached: false });
+    } catch (error) {
+        console.error('Error searching prices:', error);
+        res.status(500).json({ success: false, error: 'Failed to search prices' });
+    }
+});
+
 // Start server
 connectDB().then(() => {
     app.listen(PORT, () => {

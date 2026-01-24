@@ -2390,3 +2390,731 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
         font-size: 0.85rem;
     }
 }
+
+/* ========================================
+   AI Widgets Styles
+   ======================================== */
+
+.ai-widgets-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.ai-widget {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.ai-widget::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--gradient-primary);
+}
+
+.daily-tips-widget::before {
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.anomaly-widget::before {
+    background: linear-gradient(90deg, #f43f5e, #fb7185);
+}
+
+.widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.widget-header h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.widget-refresh-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    opacity: 0.6;
+    transition: all 0.3s ease;
+    padding: 0.25rem;
+}
+
+.widget-refresh-btn:hover {
+    opacity: 1;
+    transform: rotate(180deg);
+}
+
+.widget-content {
+    min-height: 40px;
+}
+
+.widget-loading {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tip-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+}
+
+.tip-error, .no-anomalies {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* Anomaly Chips */
+.anomaly-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(244, 63, 94, 0.1);
+    border: 1px solid var(--danger);
+    border-radius: var(--radius-md);
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    animation: fadeIn 0.3s ease;
+}
+
+.anomaly-chip.high {
+    background: rgba(244, 63, 94, 0.15);
+    border-color: var(--danger);
+}
+
+.anomaly-chip.medium {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: var(--warning);
+}
+
+.anomaly-chip.low {
+    background: rgba(124, 58, 237, 0.1);
+    border-color: var(--primary);
+}
+
+.anomaly-icon {
+    font-size: 1rem;
+}
+
+.anomaly-text {
+    flex: 1;
+    color: var(--text-primary);
+}
+
+.dismiss-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.25rem;
+    padding: 0 0.25rem;
+    transition: color 0.2s ease;
+}
+
+.dismiss-btn:hover {
+    color: var(--danger);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-5px); }
+}
+
+/* ========================================
+   Budget Recommendations Styles
+   ======================================== */
+
+.ai-recommendations-card {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.recommendations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.recommendations-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.no-recommendations {
+    text-align: center;
+    padding: 1rem;
+    color: var(--text-secondary);
+}
+
+.recommendation-item {
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    transition: all 0.3s ease;
+}
+
+.recommendation-item:hover {
+    border-color: var(--primary);
+}
+
+.recommendation-item.high {
+    border-right: 3px solid var(--danger);
+}
+
+.recommendation-item.medium {
+    border-right: 3px solid var(--warning);
+}
+
+.recommendation-item.low {
+    border-right: 3px solid var(--success);
+}
+
+.rec-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.rec-category {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.rec-status-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.rec-status-badge.under-budgeted {
+    background: rgba(244, 63, 94, 0.15);
+    color: var(--danger);
+}
+
+.rec-status-badge.over-budgeted {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
+}
+
+.rec-status-badge.no-budget {
+    background: rgba(124, 58, 237, 0.15);
+    color: var(--primary-light);
+}
+
+.rec-status-badge.optimal {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+}
+
+.rec-details {
+    margin-bottom: 0.75rem;
+}
+
+.rec-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+}
+
+.rec-row span:first-child {
+    color: var(--text-secondary);
+}
+
+.rec-current {
+    color: var(--text-muted);
+}
+
+.rec-suggested {
+    color: var(--success);
+    font-weight: 600;
+}
+
+.rec-reasoning {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+}
+
+.apply-budget-btn {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--gradient-success);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: white;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.apply-budget-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+/* ========================================
+   Receipt Scanner Styles
+   ======================================== */
+
+.receipt-scanner {
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.scan-receipt-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #06b6d4, #0891b2);
+    border: none;
+    border-radius: var(--radius-md);
+    color: white;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.scan-receipt-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(6, 182, 212, 0.4);
+}
+
+.scan-receipt-btn span:first-child {
+    font-size: 1.25rem;
+}
+
+.scan-status {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+}
+
+.scan-progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: var(--secondary);
+}
+
+.scan-success {
+    color: var(--success);
+}
+
+.scan-error {
+    color: var(--danger);
+}
+
+/* ========================================
+   Shopping Lists Styles
+   ======================================== */
+
+.shopping-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.shopping-header h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.shopping-lists-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.shopping-list-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.shopping-list-card:hover {
+    border-color: var(--border-light);
+}
+
+.list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: var(--bg-glass);
+    border-bottom: 1px solid var(--border);
+}
+
+.list-header h3 {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.list-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.list-estimate {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--success);
+}
+
+.delete-list-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+}
+
+.delete-list-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.list-items {
+    padding: 0.5rem;
+}
+
+.no-items {
+    text-align: center;
+    padding: 1rem;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.shopping-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+}
+
+.shopping-item:hover {
+    background: var(--bg-glass);
+}
+
+.shopping-item.checked {
+    opacity: 0.5;
+}
+
+.shopping-item.checked .item-name {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.item-checkbox {
+    position: relative;
+    cursor: pointer;
+}
+
+.item-checkbox input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.checkmark {
+    display: block;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+}
+
+.item-checkbox input:checked + .checkmark {
+    background: var(--success);
+    border-color: var(--success);
+}
+
+.item-checkbox input:checked + .checkmark::after {
+    content: '✓';
+    display: block;
+    text-align: center;
+    color: white;
+    font-size: 0.8rem;
+    line-height: 18px;
+}
+
+.item-name {
+    flex: 1;
+    font-size: 0.9rem;
+}
+
+.item-quantity {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.item-price {
+    font-size: 0.8rem;
+    color: var(--success);
+    font-weight: 500;
+}
+
+.remove-item-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.25rem;
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.shopping-item:hover .remove-item-btn {
+    opacity: 1;
+}
+
+.remove-item-btn:hover {
+    color: var(--danger);
+}
+
+.add-item-form {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border);
+}
+
+.add-item-input {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.875rem;
+}
+
+.add-item-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.add-item-btn {
+    width: 36px;
+    height: 36px;
+    background: var(--gradient-primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: white;
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.add-item-btn:hover {
+    transform: scale(1.05);
+}
+
+/* ========================================
+   Price Search Styles
+   ======================================== */
+
+.price-search-card {
+    margin-bottom: 1.5rem;
+}
+
+.price-search-wrapper {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.price-search-wrapper .search-input {
+    flex: 1;
+}
+
+.price-search-results {
+    min-height: 60px;
+}
+
+.price-results-header {
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+}
+
+.price-results-message {
+    text-align: center;
+    padding: 1rem;
+    color: var(--text-secondary);
+}
+
+.price-result-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem;
+    background: var(--bg-glass);
+    border-radius: var(--radius-sm);
+    margin-bottom: 0.5rem;
+}
+
+.store-name {
+    font-weight: 500;
+}
+
+.store-price {
+    color: var(--success);
+    font-weight: 600;
+}
+
+/* ========================================
+   Deal Alerts Banner Styles
+   ======================================== */
+
+.deal-alerts-banner {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(251, 191, 36, 0.1));
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.deal-alert-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--warning);
+    margin-bottom: 0.75rem;
+}
+
+.deal-alerts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.deal-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-glass);
+    border-radius: var(--radius-sm);
+}
+
+.deal-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.deal-savings {
+    font-size: 0.8rem;
+    color: var(--success);
+    font-weight: 500;
+}
+
+/* ========================================
+   Mobile Responsive for New Features
+   ======================================== */
+
+@media (max-width: 768px) {
+    .ai-widgets-row {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+
+    .ai-widget {
+        padding: 0.875rem 1rem;
+    }
+
+    .widget-header h4 {
+        font-size: 0.9rem;
+    }
+
+    .shopping-header {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: flex-start;
+    }
+
+    .shopping-header .add-btn {
+        display: flex;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .list-header {
+        padding: 0.875rem 1rem;
+    }
+
+    .shopping-item {
+        padding: 0.625rem 0.75rem;
+    }
+
+    .recommendations-list {
+        gap: 0.75rem;
+    }
+
+    .recommendation-item {
+        padding: 0.875rem;
+    }
+
+    .rec-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .price-search-wrapper {
+        flex-direction: column;
+    }
+
+    .price-search-wrapper .insights-btn {
+        width: 100%;
+    }
+}

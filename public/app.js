@@ -1570,6 +1570,570 @@ function formatInsights(text) {
         .replace(/<\/ul><ul>/g, '');
 }
 
+// ========================================
+// AI Insights Widgets
+// ========================================
+
+// Daily Tips Widget - Auto-loads on dashboard
+async function loadDailyTipsWidget() {
+    const container = document.getElementById('dailyTipContent');
+    if (!container) return;
+
+    // Check localStorage cache first (24h TTL)
+    const cached = localStorage.getItem('dailyTip');
+    if (cached) {
+        const { tip, timestamp } = JSON.parse(cached);
+        const age = Date.now() - timestamp;
+        if (age < 24 * 60 * 60 * 1000) { // 24 hours
+            container.innerHTML = `<p class="tip-text">${tip}</p>`;
+            return;
+        }
+    }
+
+    container.innerHTML = '<div class="widget-loading">💭 מחפש טיפים...</div>';
+
+    try {
+        const response = await fetch(`${API_URL}/api/insights/daily-tips`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            container.innerHTML = `<p class="tip-text">${result.tip}</p>`;
+            // Cache in localStorage
+            localStorage.setItem('dailyTip', JSON.stringify({
+                tip: result.tip,
+                timestamp: Date.now()
+            }));
+        } else {
+            container.innerHTML = '<p class="tip-error">לא ניתן לטעון טיפ</p>';
+        }
+    } catch (error) {
+        console.error('Error loading daily tip:', error);
+        container.innerHTML = '<p class="tip-error">שגיאה בטעינת טיפ</p>';
+    }
+}
+
+async function refreshDailyTips() {
+    // Clear cache and reload
+    localStorage.removeItem('dailyTip');
+    await loadDailyTipsWidget();
+    showToast('הטיפ עודכן!', 'success');
+}
+
+// Anomaly Detection Widget - Auto-loads on dashboard
+async function loadAnomalyWidget() {
+    const container = document.getElementById('anomalyContent');
+    if (!container) return;
+
+    // Check dismissed anomalies
+    const dismissed = JSON.parse(localStorage.getItem('dismissedAnomalies') || '[]');
+
+    container.innerHTML = '<div class="widget-loading">🔍 בודק חריגות...</div>';
+
+    try {
+        const response = await fetch(`${API_URL}/api/insights/anomalies`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+
+        if (result.success && result.anomalies.length > 0) {
+            // Filter out dismissed anomalies
+            const activeAnomalies = result.anomalies.filter(a =>
+                !dismissed.includes(`${a.category}-${new Date().getMonth()}`)
+            );
+
+            if (activeAnomalies.length > 0) {
+                container.innerHTML = activeAnomalies.map(a => `
+                    <div class="anomaly-chip ${a.severity}" data-category="${a.category}">
+                        <span class="anomaly-icon">${a.severity === 'high' ? '🚨' : a.severity === 'medium' ? '⚠️' : '📊'}</span>
+                        <span class="anomaly-text">
+                            ${a.category}: ₪${a.currentAmount.toLocaleString()} (ממוצע: ₪${a.average.toLocaleString()})
+                        </span>
+                        <button class="dismiss-btn" onclick="dismissAnomaly('${a.category}')" title="סגור">×</button>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p class="no-anomalies">✅ לא נמצאו חריגות החודש</p>';
+            }
+        } else {
+            container.innerHTML = '<p class="no-anomalies">✅ לא נמצאו חריגות החודש</p>';
+        }
+    } catch (error) {
+        console.error('Error loading anomalies:', error);
+        container.innerHTML = '<p class="tip-error">שגיאה בבדיקת חריגות</p>';
+    }
+}
+
+function dismissAnomaly(category) {
+    const dismissed = JSON.parse(localStorage.getItem('dismissedAnomalies') || '[]');
+    const key = `${category}-${new Date().getMonth()}`;
+    if (!dismissed.includes(key)) {
+        dismissed.push(key);
+        localStorage.setItem('dismissedAnomalies', JSON.stringify(dismissed));
+    }
+    // Remove from UI
+    const chip = document.querySelector(`.anomaly-chip[data-category="${category}"]`);
+    if (chip) {
+        chip.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => chip.remove(), 300);
+    }
+}
+
+// Budget Recommendations
+async function loadBudgetRecommendations() {
+    const container = document.getElementById('budgetRecommendations');
+    if (!container) return;
+
+    container.innerHTML = '<div class="widget-loading">📊 מחשב המלצות...</div>';
+
+    try {
+        const response = await fetch(`${API_URL}/api/insights/budget-recommendations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+
+        if (result.success && result.recommendations.length > 0) {
+            container.innerHTML = result.recommendations.map(r => `
+                <div class="recommendation-item ${r.urgency}">
+                    <div class="rec-header">
+                        <span class="rec-category">${r.category}</span>
+                        <span class="rec-status-badge ${r.status}">${getStatusLabel(r.status)}</span>
+                    </div>
+                    <div class="rec-details">
+                        <div class="rec-row">
+                            <span>נוכחי:</span>
+                            <span class="rec-current">${r.currentBudget > 0 ? `₪${r.currentBudget.toLocaleString()}` : 'לא הוגדר'}</span>
+                        </div>
+                        <div class="rec-row">
+                            <span>מומלץ:</span>
+                            <span class="rec-suggested">₪${r.suggestedBudget.toLocaleString()}</span>
+                        </div>
+                        <div class="rec-reasoning">${r.reasoning}</div>
+                    </div>
+                    <button class="apply-budget-btn" onclick="applyBudgetRecommendation('${r.category}', ${r.suggestedBudget})">
+                        החל תקציב
+                    </button>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<p class="no-recommendations">אין מספיק נתונים להמלצות. המשך לתעד הוצאות!</p>';
+        }
+    } catch (error) {
+        console.error('Error loading recommendations:', error);
+        container.innerHTML = '<p class="tip-error">שגיאה בחישוב המלצות</p>';
+    }
+}
+
+function getStatusLabel(status) {
+    const labels = {
+        'under-budgeted': 'תקציב נמוך מדי',
+        'over-budgeted': 'תקציב גבוה מדי',
+        'no-budget': 'ללא תקציב',
+        'optimal': 'אופטימלי'
+    };
+    return labels[status] || status;
+}
+
+async function applyBudgetRecommendation(category, amount) {
+    await saveBudget(category, amount);
+    showToast(`התקציב עודכן ל-₪${amount.toLocaleString()}`, 'success');
+    loadBudgetRecommendations(); // Refresh
+}
+
+// ========================================
+// Receipt Scanner (Tesseract.js OCR)
+// ========================================
+
+function triggerReceiptScan() {
+    const input = document.getElementById('receiptInput');
+    if (input) {
+        input.click();
+    }
+}
+
+// Initialize receipt scanner
+function setupReceiptScanner() {
+    const input = document.getElementById('receiptInput');
+    if (input) {
+        input.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                await scanReceipt(file);
+            }
+        });
+    }
+}
+
+async function scanReceipt(imageFile) {
+    const statusEl = document.getElementById('receiptScanStatus');
+    if (!statusEl) return;
+
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = '<div class="scan-progress"><span class="loading-spinner"></span> סורק קבלה...</div>';
+
+    try {
+        // Check if Tesseract is loaded
+        if (typeof Tesseract === 'undefined') {
+            throw new Error('Tesseract.js not loaded');
+        }
+
+        const result = await Tesseract.recognize(imageFile, 'heb+eng', {
+            logger: m => {
+                if (m.status === 'recognizing text') {
+                    statusEl.innerHTML = `<div class="scan-progress"><span class="loading-spinner"></span> מזהה טקסט... ${Math.round(m.progress * 100)}%</div>`;
+                }
+            }
+        });
+
+        const text = result.data.text;
+        console.log('OCR Result:', text);
+
+        // Parse the receipt text
+        const parsed = parseReceiptText(text);
+
+        statusEl.innerHTML = '<div class="scan-success">✅ הסריקה הושלמה!</div>';
+        setTimeout(() => {
+            statusEl.style.display = 'none';
+        }, 2000);
+
+        // Pre-fill the form
+        if (parsed.amount) {
+            document.getElementById('amount').value = parsed.amount;
+        }
+        if (parsed.date) {
+            document.getElementById('date').value = parsed.date;
+        }
+        if (parsed.description) {
+            document.getElementById('description').value = parsed.description;
+        }
+
+        showToast('הקבלה נסרקה בהצלחה!', 'success');
+    } catch (error) {
+        console.error('Receipt scan error:', error);
+        statusEl.innerHTML = '<div class="scan-error">❌ שגיאה בסריקה. נסה שוב.</div>';
+        setTimeout(() => {
+            statusEl.style.display = 'none';
+        }, 3000);
+    }
+}
+
+function parseReceiptText(text) {
+    const result = {
+        amount: null,
+        date: null,
+        description: null
+    };
+
+    // Look for total amount patterns (Hebrew and English)
+    const amountPatterns = [
+        /סה"כ[:\s]*₪?(\d+(?:[.,]\d{2})?)/i,
+        /סה"כ לתשלום[:\s]*₪?(\d+(?:[.,]\d{2})?)/i,
+        /total[:\s]*₪?(\d+(?:[.,]\d{2})?)/i,
+        /לתשלום[:\s]*₪?(\d+(?:[.,]\d{2})?)/i,
+        /₪\s*(\d+(?:[.,]\d{2})?)/,
+        /(\d+(?:[.,]\d{2})?)\s*₪/
+    ];
+
+    for (const pattern of amountPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+            result.amount = parseFloat(match[1].replace(',', '.'));
+            break;
+        }
+    }
+
+    // Look for date patterns
+    const datePatterns = [
+        /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/,
+        /(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/
+    ];
+
+    for (const pattern of datePatterns) {
+        const match = text.match(pattern);
+        if (match) {
+            let day, month, year;
+            if (match[1].length === 4) {
+                year = match[1];
+                month = match[2].padStart(2, '0');
+                day = match[3].padStart(2, '0');
+            } else {
+                day = match[1].padStart(2, '0');
+                month = match[2].padStart(2, '0');
+                year = match[3].length === 2 ? '20' + match[3] : match[3];
+            }
+            result.date = `${year}-${month}-${day}`;
+            break;
+        }
+    }
+
+    // Try to extract store name (first line usually)
+    const lines = text.split('\n').filter(l => l.trim());
+    if (lines.length > 0) {
+        result.description = lines[0].trim().substring(0, 50);
+    }
+
+    return result;
+}
+
+// ========================================
+// Shopping Lists
+// ========================================
+
+let shoppingLists = [];
+let currentShoppingListId = null;
+
+async function loadShoppingLists() {
+    try {
+        const response = await fetch(`${API_URL}/api/shopping-lists`);
+        const result = await response.json();
+        if (result.success) {
+            shoppingLists = result.lists;
+            renderShoppingLists();
+        }
+    } catch (error) {
+        console.error('Error loading shopping lists:', error);
+    }
+}
+
+function renderShoppingLists() {
+    const container = document.getElementById('shoppingLists');
+    if (!container) return;
+
+    if (shoppingLists.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">🛍️</div>
+                <p>אין רשימות קניות</p>
+                <button class="add-category-btn" onclick="createNewShoppingList()">צור רשימה ראשונה</button>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = shoppingLists.map(list => `
+        <div class="shopping-list-card" data-list-id="${list._id}">
+            <div class="list-header">
+                <h3>${list.name}</h3>
+                <div class="list-actions">
+                    <span class="list-estimate">₪${(list.totalEstimate || 0).toLocaleString()}</span>
+                    <button class="delete-list-btn" onclick="deleteShoppingList('${list._id}')" title="מחק">🗑️</button>
+                </div>
+            </div>
+            <div class="list-items">
+                ${list.items.length === 0 ? '<p class="no-items">אין פריטים</p>' :
+                    list.items.map(item => `
+                        <div class="shopping-item ${item.checked ? 'checked' : ''}" data-item-id="${item.id}">
+                            <label class="item-checkbox">
+                                <input type="checkbox" ${item.checked ? 'checked' : ''}
+                                    onchange="toggleShoppingItem('${list._id}', ${item.id}, this.checked)">
+                                <span class="checkmark"></span>
+                            </label>
+                            <span class="item-name">${item.name}</span>
+                            <span class="item-quantity">×${item.quantity}</span>
+                            ${item.estimatedPrice ? `<span class="item-price">₪${item.estimatedPrice}</span>` : ''}
+                            <button class="remove-item-btn" onclick="removeShoppingItem('${list._id}', ${item.id})">×</button>
+                        </div>
+                    `).join('')
+                }
+            </div>
+            <div class="add-item-form">
+                <input type="text" placeholder="הוסף פריט..." class="add-item-input"
+                    onkeypress="if(event.key==='Enter') addShoppingItem('${list._id}', this)">
+                <button class="add-item-btn" onclick="addShoppingItem('${list._id}', this.previousElementSibling)">+</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function createNewShoppingList() {
+    const name = prompt('שם הרשימה:', 'רשימת קניות חדשה');
+    if (!name) return;
+
+    try {
+        const response = await fetch(`${API_URL}/api/shopping-lists`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        const result = await response.json();
+        if (result.success) {
+            shoppingLists.unshift(result.list);
+            renderShoppingLists();
+            showToast('הרשימה נוצרה!', 'success');
+        }
+    } catch (error) {
+        console.error('Error creating list:', error);
+        showToast('שגיאה ביצירת רשימה', 'error');
+    }
+}
+
+async function deleteShoppingList(listId) {
+    if (!confirm('האם למחוק את הרשימה?')) return;
+
+    try {
+        const response = await fetch(`${API_URL}/api/shopping-lists/${listId}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        if (result.success) {
+            shoppingLists = shoppingLists.filter(l => l._id !== listId);
+            renderShoppingLists();
+            showToast('הרשימה נמחקה', 'success');
+        }
+    } catch (error) {
+        console.error('Error deleting list:', error);
+        showToast('שגיאה במחיקת רשימה', 'error');
+    }
+}
+
+async function addShoppingItem(listId, inputEl) {
+    const name = inputEl.value.trim();
+    if (!name) return;
+
+    try {
+        const response = await fetch(`${API_URL}/api/shopping-lists/${listId}/items`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, quantity: 1 })
+        });
+        const result = await response.json();
+        if (result.success) {
+            // Update local state
+            const list = shoppingLists.find(l => l._id === listId);
+            if (list && result.list) {
+                list.items = result.list.items;
+                list.totalEstimate = result.list.totalEstimate;
+            }
+            inputEl.value = '';
+            renderShoppingLists();
+        }
+    } catch (error) {
+        console.error('Error adding item:', error);
+        showToast('שגיאה בהוספת פריט', 'error');
+    }
+}
+
+async function toggleShoppingItem(listId, itemId, checked) {
+    try {
+        await fetch(`${API_URL}/api/shopping-lists/${listId}/items/${itemId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ checked })
+        });
+
+        // Update local state
+        const list = shoppingLists.find(l => l._id === listId);
+        if (list) {
+            const item = list.items.find(i => i.id === itemId);
+            if (item) item.checked = checked;
+        }
+
+        // Animate the item
+        const itemEl = document.querySelector(`.shopping-item[data-item-id="${itemId}"]`);
+        if (itemEl) {
+            itemEl.classList.toggle('checked', checked);
+        }
+    } catch (error) {
+        console.error('Error toggling item:', error);
+    }
+}
+
+async function removeShoppingItem(listId, itemId) {
+    try {
+        await fetch(`${API_URL}/api/shopping-lists/${listId}/items/${itemId}`, {
+            method: 'DELETE'
+        });
+
+        // Update local state
+        const list = shoppingLists.find(l => l._id === listId);
+        if (list) {
+            list.items = list.items.filter(i => i.id !== itemId);
+        }
+        renderShoppingLists();
+    } catch (error) {
+        console.error('Error removing item:', error);
+        showToast('שגיאה במחיקת פריט', 'error');
+    }
+}
+
+// ========================================
+// Price Search
+// ========================================
+
+async function searchPrices() {
+    const input = document.getElementById('priceSearchInput');
+    const results = document.getElementById('priceSearchResults');
+    if (!input || !results) return;
+
+    const query = input.value.trim();
+    if (!query) {
+        showToast('הזן שם מוצר לחיפוש', 'error');
+        return;
+    }
+
+    results.innerHTML = '<div class="widget-loading">🔍 מחפש מחירים...</div>';
+
+    try {
+        const response = await fetch(`${API_URL}/api/prices/search?q=${encodeURIComponent(query)}`);
+        const result = await response.json();
+
+        if (result.success) {
+            if (result.results.stores && result.results.stores.length > 0) {
+                results.innerHTML = `
+                    <div class="price-results-header">תוצאות עבור: ${query}</div>
+                    ${result.results.stores.map(store => `
+                        <div class="price-result-item">
+                            <span class="store-name">${store.name}</span>
+                            <span class="store-price">₪${store.price}</span>
+                        </div>
+                    `).join('')}
+                `;
+            } else {
+                results.innerHTML = `
+                    <div class="price-results-message">
+                        <p>${result.results.message || 'לא נמצאו תוצאות'}</p>
+                    </div>
+                `;
+            }
+        }
+    } catch (error) {
+        console.error('Error searching prices:', error);
+        results.innerHTML = '<p class="tip-error">שגיאה בחיפוש מחירים</p>';
+    }
+}
+
+// ========================================
+// Initialize New Features on Load
+// ========================================
+
+// Override init to include new features
+const originalInit = init;
+async function init() {
+    try {
+        await loadData();
+        await loadAvatars();
+        await loadBudgets();
+        await loadShoppingLists();
+        setupEventListeners();
+        setupMobileMenu();
+        setupAvatarUploads();
+        setupSearchListeners();
+        setupReceiptScanner();
+        updateUI();
+
+        // Load AI widgets after main data
+        loadDailyTipsWidget();
+        loadAnomalyWidget();
+    } catch (error) {
+        console.error('Error initializing app:', error);
+        showToast('שגיאה באתחול האפליקציה', 'error');
+    }
+}
+
 // Make functions globally available
 window.addCategory = addCategory;
 window.removeCategory = removeCategory;
@@ -1577,3 +2141,14 @@ window.deleteTransaction = deleteTransaction;
 window.editTransaction = editTransaction;
 window.saveBudget = saveBudget;
 window.getAIInsights = getAIInsights;
+window.refreshDailyTips = refreshDailyTips;
+window.dismissAnomaly = dismissAnomaly;
+window.loadBudgetRecommendations = loadBudgetRecommendations;
+window.applyBudgetRecommendation = applyBudgetRecommendation;
+window.triggerReceiptScan = triggerReceiptScan;
+window.createNewShoppingList = createNewShoppingList;
+window.deleteShoppingList = deleteShoppingList;
+window.addShoppingItem = addShoppingItem;
+window.toggleShoppingItem = toggleShoppingItem;
+window.removeShoppingItem = removeShoppingItem;
+window.searchPrices = searchPrices;
