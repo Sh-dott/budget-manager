@@ -35,14 +35,19 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function init() {
-    await loadData();
-    await loadAvatars();
-    await loadBudgets();
-    setupEventListeners();
-    setupMobileMenu();
-    setupAvatarUploads();
-    setupSearchListeners();
-    updateUI();
+    try {
+        await loadData();
+        await loadAvatars();
+        await loadBudgets();
+        setupEventListeners();
+        setupMobileMenu();
+        setupAvatarUploads();
+        setupSearchListeners();
+        updateUI();
+    } catch (error) {
+        console.error('Error initializing app:', error);
+        showToast('שגיאה באתחול האפליקציה', 'error');
+    }
 }
 
 // API Functions
@@ -380,76 +385,94 @@ function setupEventListeners() {
 
 // Modal Functions
 function openModal(transaction = null) {
-    const modal = document.getElementById('modal');
-    const dateInput = document.getElementById('date');
-    const modalTitle = document.querySelector('.modal-header h2');
-    const submitBtn = document.querySelector('#transactionForm .btn-primary');
-    const recurringToggle = document.getElementById('recurringToggle');
+    try {
+        const modal = document.getElementById('modal');
+        const dateInput = document.getElementById('date');
+        const modalTitle = document.querySelector('.modal-header h2');
+        const submitBtn = document.querySelector('#transactionForm .btn-primary');
+        const recurringToggle = document.getElementById('recurringToggle');
 
-    // Ensure transaction is a valid object (not an Event)
-    if (transaction && (transaction instanceof Event || !transaction.type || !transaction.amount)) {
-        transaction = null;
-    }
-
-    // Reset form
-    document.getElementById('transactionForm').reset();
-    state.isRecurring = false;
-    if (recurringToggle) recurringToggle.checked = false;
-
-    if (transaction) {
-        // Edit mode - don't allow editing generated recurring transactions
-        if (transaction.isGenerated) {
-            showToast('לא ניתן לערוך תנועה קבועה שנוצרה אוטומטית', 'error');
+        if (!modal || !dateInput) {
+            console.error('Modal elements not found');
             return;
         }
 
-        modalTitle.textContent = 'עריכת תנועה';
-        submitBtn.textContent = 'עדכן';
+        // Ensure transaction is a valid object (not an Event)
+        if (transaction && (transaction instanceof Event || typeof transaction.type !== 'string')) {
+            transaction = null;
+        }
 
-        // Set type
-        state.currentType = transaction.type;
-        document.querySelectorAll('.type-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.type === transaction.type);
-        });
+        // Reset form
+        const form = document.getElementById('transactionForm');
+        if (form) form.reset();
 
-        // Fill form fields
-        document.getElementById('amount').value = transaction.amount;
-        document.getElementById('description').value = transaction.description || '';
-        document.getElementById('date').value = transaction.date;
-
-        // Update category select and set value
-        updateCategorySelect();
-        document.getElementById('category').value = transaction.category;
-
-        // Set person
-        document.querySelectorAll('.person-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.person === transaction.person);
-        });
-
-        // Set recurring toggle
-        state.isRecurring = transaction.isRecurring || false;
-        if (recurringToggle) recurringToggle.checked = state.isRecurring;
-    } else {
-        // Create mode
-        modalTitle.textContent = 'תנועה חדשה';
-        submitBtn.textContent = 'שמור';
+        state.isRecurring = false;
         state.editingTransactionId = null;
+        if (recurringToggle) recurringToggle.checked = false;
 
-        document.querySelectorAll('.type-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.type === 'expense');
-        });
-        document.querySelectorAll('.person-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.person === 'Shai');
-        });
+        if (transaction && transaction.id) {
+            // Edit mode - don't allow editing generated recurring transactions
+            if (transaction.isGenerated) {
+                showToast('לא ניתן לערוך תנועה קבועה שנוצרה אוטומטית', 'error');
+                return;
+            }
 
-        state.currentType = 'expense';
-        updateCategorySelect();
+            state.editingTransactionId = transaction.id;
+            if (modalTitle) modalTitle.textContent = 'עריכת תנועה';
+            if (submitBtn) submitBtn.textContent = 'עדכן';
 
-        // Set today's date
-        dateInput.value = new Date().toISOString().split('T')[0];
+            // Set type
+            state.currentType = transaction.type || 'expense';
+            document.querySelectorAll('.type-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.type === state.currentType);
+            });
+
+            // Fill form fields
+            const amountInput = document.getElementById('amount');
+            const descInput = document.getElementById('description');
+            if (amountInput) amountInput.value = transaction.amount || '';
+            if (descInput) descInput.value = transaction.description || '';
+            if (dateInput) dateInput.value = transaction.date || '';
+
+            // Update category select and set value
+            updateCategorySelect();
+            const categorySelect = document.getElementById('category');
+            if (categorySelect && transaction.category) {
+                categorySelect.value = transaction.category;
+            }
+
+            // Set person
+            document.querySelectorAll('.person-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.person === transaction.person);
+            });
+
+            // Set recurring toggle
+            state.isRecurring = transaction.isRecurring || false;
+            if (recurringToggle) recurringToggle.checked = state.isRecurring;
+        } else {
+            // Create mode
+            if (modalTitle) modalTitle.textContent = 'תנועה חדשה';
+            if (submitBtn) submitBtn.textContent = 'שמור';
+
+            document.querySelectorAll('.type-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.type === 'expense');
+            });
+            document.querySelectorAll('.person-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.person === 'Shai');
+            });
+
+            state.currentType = 'expense';
+            updateCategorySelect();
+
+            // Set today's date
+            dateInput.value = new Date().toISOString().split('T')[0];
+        }
+
+        modal.classList.add('active');
+    } catch (error) {
+        console.error('Error opening modal:', error);
+        showToast('שגיאה בפתיחת החלון', 'error');
     }
-
-    modal.classList.add('active');
 }
 
 function closeModal() {
@@ -468,43 +491,64 @@ function updateCategorySelect() {
 async function handleFormSubmit(e) {
     e.preventDefault();
 
-    const recurringToggle = document.getElementById('recurringToggle');
-    const transaction = {
-        type: state.currentType,
-        amount: parseFloat(document.getElementById('amount').value),
-        category: document.getElementById('category').value,
-        description: document.getElementById('description').value,
-        date: document.getElementById('date').value,
-        person: document.querySelector('.person-btn.active').dataset.person,
-        isRecurring: recurringToggle ? recurringToggle.checked : false
-    };
+    try {
+        const recurringToggle = document.getElementById('recurringToggle');
+        const activePersonBtn = document.querySelector('.person-btn.active');
 
-    let success;
-    if (state.editingTransactionId) {
-        success = await updateTransaction(state.editingTransactionId, transaction);
-    } else {
-        success = await saveTransaction(transaction);
-    }
+        const transaction = {
+            type: state.currentType,
+            amount: parseFloat(document.getElementById('amount').value) || 0,
+            category: document.getElementById('category').value || '',
+            description: document.getElementById('description').value || '',
+            date: document.getElementById('date').value || new Date().toISOString().split('T')[0],
+            person: activePersonBtn ? activePersonBtn.dataset.person : 'Shai',
+            isRecurring: recurringToggle ? recurringToggle.checked : false
+        };
 
-    if (success) {
-        state.editingTransactionId = null;
-        closeModal();
+        if (!transaction.amount || transaction.amount <= 0) {
+            showToast('נא להזין סכום תקין', 'error');
+            return;
+        }
+
+        if (!transaction.category) {
+            showToast('נא לבחור קטגוריה', 'error');
+            return;
+        }
+
+        let success;
+        if (state.editingTransactionId) {
+            success = await updateTransaction(state.editingTransactionId, transaction);
+        } else {
+            success = await saveTransaction(transaction);
+        }
+
+        if (success) {
+            state.editingTransactionId = null;
+            closeModal();
+        }
+    } catch (error) {
+        console.error('Error submitting form:', error);
+        showToast('שגיאה בשמירת התנועה', 'error');
     }
 }
 
 // UI Update Functions
 function updateUI() {
-    updateMonthDisplay();
-    updateStats();
-    updateBudgetAlerts();
-    updateBudgetProgress();
-    updateRecentTransactions();
-    updateTransactionsList();
-    updateCategories();
-    updateFilterOptions();
-    updateCharts();
-    updateAnalytics();
-    updatePersonChart();
+    try {
+        updateMonthDisplay();
+        updateStats();
+        updateBudgetAlerts();
+        updateBudgetProgress();
+        updateRecentTransactions();
+        updateTransactionsList();
+        updateCategories();
+        updateFilterOptions();
+        updateCharts();
+        updateAnalytics();
+        updatePersonChart();
+    } catch (error) {
+        console.error('Error updating UI:', error);
+    }
 }
 
 function updateMonthDisplay() {
