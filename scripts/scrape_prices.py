@@ -3,6 +3,9 @@
 Israeli Supermarket Price Scraper
 Uses il-supermarket-scraper to fetch real prices from Israeli chains.
 Output JSON to stdout for Node.js to consume.
+
+Set ISRAEL_PROXY_URL environment variable for Israeli proxy:
+  export ISRAEL_PROXY_URL="http://user:pass@proxy.example.com:8080"
 """
 
 import json
@@ -20,6 +23,17 @@ logging.basicConfig(
     stream=sys.stderr
 )
 logger = logging.getLogger(__name__)
+
+# Configure proxy for Israeli IP (required for scraping Israeli supermarkets)
+PROXY_URL = os.environ.get('ISRAEL_PROXY_URL')
+if PROXY_URL:
+    logger.info(f"Using proxy: {PROXY_URL[:30]}...")
+    os.environ['HTTP_PROXY'] = PROXY_URL
+    os.environ['HTTPS_PROXY'] = PROXY_URL
+    os.environ['http_proxy'] = PROXY_URL
+    os.environ['https_proxy'] = PROXY_URL
+else:
+    logger.warning("No ISRAEL_PROXY_URL set - scraping may fail from non-Israeli IPs")
 
 # Suppress the il_supermarket_scarper library's Logger output to stdout
 # by monkey-patching before import
