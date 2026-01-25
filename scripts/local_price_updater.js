@@ -219,23 +219,27 @@ async function fetchShufersal(limit = 10000) {
         const listUrl = `${chain.baseUrl}${chain.fileListPath}`;
         const listHtml = await fetchUrl(listUrl);
 
-        // Extract file URLs (look for PriceFull files)
-        const fileMatches = listHtml.match(/href="([^"]*(?:PriceFull|pricefull)[^"]*\.xml(?:\.gz)?)"/gi) || [];
+        // Extract Azure blob storage URLs (Shufersal uses blob.core.windows.net)
+        const fileMatches = listHtml.match(/href="(https:\/\/[^"]*blob\.core\.windows\.net[^"]*(?:PriceFull|pricefull)[^"]*)"/gi) || [];
         console.log(`  Found ${fileMatches.length} price files`);
 
         // Download and parse first few files
-        for (const match of fileMatches.slice(0, 3)) {
+        for (const match of fileMatches.slice(0, 5)) {
             if (products.length >= limit) break;
 
             try {
-                const fileUrl = match.replace(/href="/i, '').replace(/"$/, '');
-                const fullUrl = fileUrl.startsWith('http') ? fileUrl : `${chain.baseUrl}${fileUrl}`;
+                // Clean up the URL - decode HTML entities
+                let fileUrl = match.replace(/href="/i, '').replace(/"$/, '');
+                fileUrl = fileUrl.replace(/&amp;/g, '&');
 
-                const xmlContent = await fetchUrl(fullUrl, { timeout: 60000 });
+                console.log(`  Downloading: ${fileUrl.substring(0, 60)}...`);
+                const xmlContent = await fetchUrl(fileUrl, { timeout: 120000 });
                 const parsed = parsePriceXml(xmlContent, 'shufersal', chain.name);
                 products.push(...parsed);
 
                 console.log(`  Total products so far: ${products.length}`);
+
+                if (products.length >= limit) break;
             } catch (fileError) {
                 console.log(`  Skipping file: ${fileError.message}`);
             }
