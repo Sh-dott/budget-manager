@@ -2111,6 +2111,18 @@ function searchProduct(productName) {
     searchPrices();
 }
 
+// Chain logos/icons
+const chainLogos = {
+    'שופרסל': '🟢',
+    'רמי לוי': '🔵',
+    'ויקטורי': '🟡',
+    'אושר עד': '🟠',
+    'יינות ביתן': '🟣',
+    'מגה': '🔴',
+    'חצי חינם': '🟤',
+    'טיב טעם': '⚫'
+};
+
 async function searchPrices() {
     const input = document.getElementById('priceSearchInput');
     const results = document.getElementById('priceSearchResults');
@@ -2131,52 +2143,132 @@ async function searchPrices() {
         if (result.success) {
             const data = result.results;
 
-            if (data.stores && data.stores.length > 0) {
-                results.innerHTML = `
-                    <div class="price-results-container">
-                        <div class="price-results-header">
-                            <div class="product-info">
-                                <img src="${data.image}" alt="${data.product}" class="product-image"
-                                     onerror="this.src='https://via.placeholder.com/80x80?text=🛒'">
-                                <div class="product-details">
-                                    <span class="product-name">${data.product || query}</span>
-                                    ${data.category ? `<span class="product-category">${data.category}</span>` : ''}
+            // New format: multiple products
+            if (data.products && data.products.length > 0) {
+                const productsHtml = data.products.map((product, idx) => {
+                    const hasMultiplePrices = product.stores && product.stores.length > 1;
+                    const savings = hasMultiplePrices
+                        ? (product.stores[product.stores.length - 1].price - product.stores[0].price).toFixed(2)
+                        : 0;
+
+                    return `
+                        <div class="product-card ${idx === 0 ? 'featured' : ''}">
+                            <div class="product-card-header" onclick="toggleProductDetails(this)">
+                                <div class="product-info">
+                                    <img src="${product.image}" alt="${product.name}" class="product-image"
+                                         onerror="this.style.display='none'">
+                                    <div class="product-details">
+                                        <span class="product-name">${product.name}</span>
+                                        <span class="product-category">${product.category || ''}</span>
+                                    </div>
+                                </div>
+                                <div class="product-price-summary">
+                                    ${product.cheapestPrice ? `
+                                        <span class="cheapest-price">₪${product.cheapestPrice.toFixed(2)}</span>
+                                        <span class="cheapest-store">${chainLogos[product.cheapestStore] || '🏪'} ${product.cheapestStore}</span>
+                                    ` : '<span class="no-price">אין מחיר</span>'}
+                                    ${hasMultiplePrices ? `<span class="expand-icon">▼</span>` : ''}
                                 </div>
                             </div>
-                            ${result.cached ? '<span class="cached-badge">מהמטמון</span>' : ''}
-                        </div>
 
-                        <div class="stores-list">
-                            ${data.stores.map((store, index) => `
-                                <div class="price-result-item ${index === 0 ? 'cheapest' : ''}">
-                                    <div class="store-info">
-                                        <span class="store-name">${store.name}</span>
-                                        ${index === 0 ? '<span class="cheapest-badge">הכי זול! 🏆</span>' : ''}
-                                        ${store.note ? `<span class="store-note">${store.note}</span>` : ''}
+                            ${hasMultiplePrices ? `
+                                <div class="product-details-expanded" style="display: none;">
+                                    <div class="savings-banner">
+                                        💰 חסוך עד ₪${savings} בבחירת הרשת הזולה!
                                     </div>
-                                    <span class="store-price">₪${store.price.toFixed(2)}</span>
+                                    <div class="chain-prices-grid">
+                                        ${product.stores.map((store, storeIdx) => `
+                                            <div class="chain-price-item ${storeIdx === 0 ? 'cheapest' : ''}">
+                                                <span class="chain-logo">${chainLogos[store.name] || '🏪'}</span>
+                                                <span class="chain-name">${store.name}</span>
+                                                <span class="chain-price ${storeIdx === 0 ? 'best-price' : ''}">
+                                                    ₪${store.price.toFixed(2)}
+                                                </span>
+                                                ${storeIdx === 0 ? '<span class="best-badge">הכי זול!</span>' : ''}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                    <button class="add-to-list-btn" onclick="addProductToShoppingList('${product.name.replace(/'/g, "\\'")}', ${product.cheapestPrice})">
+                                        ➕ הוסף לרשימת קניות
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                // Store comparison summary
+                const storeComparisonHtml = data.byStore && data.byStore.length > 0 ? `
+                    <div class="store-comparison-card">
+                        <h4>📊 השוואת סל קניות לפי רשת</h4>
+                        <div class="store-totals">
+                            ${data.byStore.slice(0, 5).map((store, idx) => `
+                                <div class="store-total-item ${idx === 0 ? 'cheapest-store' : ''}">
+                                    <span class="store-logo">${chainLogos[store.store] || '🏪'}</span>
+                                    <span class="store-name">${store.store}</span>
+                                    <span class="store-total">₪${store.totalPrice.toFixed(2)}</span>
+                                    ${idx === 0 ? '<span class="winner-badge">🏆</span>' : ''}
                                 </div>
                             `).join('')}
                         </div>
+                    </div>
+                ` : '';
 
-                        ${data.tip ? `
-                            <div class="price-tip">
-                                <span class="tip-icon">💡</span>
-                                <span>${data.tip}</span>
+                results.innerHTML = `
+                    <div class="price-results-container">
+                        <div class="results-header">
+                            <span class="results-count">נמצאו ${data.totalFound} מוצרים</span>
+                            ${data.dataSource === 'real' ? '<span class="real-data-badge">🔴 מחירים בזמן אמת</span>' : ''}
+                        </div>
+
+                        ${storeComparisonHtml}
+
+                        <div class="products-list">
+                            ${productsHtml}
+                        </div>
+
+                        <div class="price-disclaimer">${data.disclaimer || ''}</div>
+                    </div>
+                `;
+            }
+            // Old format fallback (single product)
+            else if (data.stores && data.stores.length > 0) {
+                results.innerHTML = `
+                    <div class="price-results-container">
+                        <div class="product-card featured">
+                            <div class="product-card-header">
+                                <div class="product-info">
+                                    <img src="${data.image}" alt="${data.product}" class="product-image"
+                                         onerror="this.style.display='none'">
+                                    <div class="product-details">
+                                        <span class="product-name">${data.product || query}</span>
+                                        ${data.category ? `<span class="product-category">${data.category}</span>` : ''}
+                                    </div>
+                                </div>
                             </div>
-                        ` : ''}
-
-                        <button class="add-to-list-btn" onclick="addProductToShoppingList('${data.product}', ${data.stores[0].price})">
-                            ➕ הוסף לרשימת קניות
-                        </button>
-
+                            <div class="chain-prices-grid">
+                                ${data.stores.map((store, idx) => `
+                                    <div class="chain-price-item ${idx === 0 ? 'cheapest' : ''}">
+                                        <span class="chain-logo">${chainLogos[store.name] || '🏪'}</span>
+                                        <span class="chain-name">${store.name}</span>
+                                        <span class="chain-price ${idx === 0 ? 'best-price' : ''}">₪${store.price.toFixed(2)}</span>
+                                        ${idx === 0 ? '<span class="best-badge">הכי זול!</span>' : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <button class="add-to-list-btn" onclick="addProductToShoppingList('${data.product}', ${data.stores[0].price})">
+                                ➕ הוסף לרשימת קניות
+                            </button>
+                        </div>
                         <div class="price-disclaimer">${data.disclaimer || ''}</div>
                     </div>
                 `;
             } else {
                 results.innerHTML = `
                     <div class="price-results-message">
-                        <p>${data.message || 'לא נמצאו תוצאות'}</p>
+                        <span class="no-results-icon">🔍</span>
+                        <p>${data.message || 'לא נמצאו תוצאות עבור "' + query + '"'}</p>
+                        <p class="suggestion">נסה לחפש מוצר אחר או בדוק את האיות</p>
                     </div>
                 `;
             }
@@ -2184,6 +2276,16 @@ async function searchPrices() {
     } catch (error) {
         console.error('Error searching prices:', error);
         results.innerHTML = '<p class="tip-error">שגיאה בחיפוש מחירים</p>';
+    }
+}
+
+function toggleProductDetails(header) {
+    const details = header.nextElementSibling;
+    const icon = header.querySelector('.expand-icon');
+    if (details && details.classList.contains('product-details-expanded')) {
+        const isVisible = details.style.display !== 'none';
+        details.style.display = isVisible ? 'none' : 'block';
+        if (icon) icon.textContent = isVisible ? '▼' : '▲';
     }
 }
 
@@ -2262,3 +2364,4 @@ window.searchPrices = searchPrices;
 window.searchByCategory = searchByCategory;
 window.searchProduct = searchProduct;
 window.addProductToShoppingList = addProductToShoppingList;
+window.toggleProductDetails = toggleProductDetails;

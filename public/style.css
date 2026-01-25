@@ -3098,6 +3098,302 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 }
 
 /* ========================================
+   Multi-Chain Price Comparison Styles
+   ======================================== */
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.results-count {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.real-data-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.products-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.product-card {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.product-card.featured {
+    border-color: var(--primary-light);
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.1);
+}
+
+.product-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.product-card-header:hover {
+    background: var(--bg-hover);
+}
+
+.product-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.product-image {
+    width: 50px;
+    height: 50px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    background: var(--bg-glass);
+}
+
+.product-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.product-category {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.product-price-summary {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.2rem;
+}
+
+.cheapest-price {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--success);
+}
+
+.cheapest-store {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.no-price {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.expand-icon {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+
+.product-details-expanded {
+    padding: 0 1rem 1rem;
+    border-top: 1px solid var(--border);
+    animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.savings-banner {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(52, 211, 153, 0.1) 100%);
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius-sm);
+    margin: 0.75rem 0;
+    font-size: 0.85rem;
+    color: var(--success);
+    font-weight: 500;
+    text-align: center;
+}
+
+.chain-prices-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.chain-price-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem;
+    background: var(--bg-glass);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.chain-price-item:hover {
+    border-color: var(--primary-light);
+}
+
+.chain-price-item.cheapest {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: var(--success);
+}
+
+.chain-logo {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.chain-name {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.chain-price {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.chain-price.best-price {
+    color: var(--success);
+}
+
+.best-badge {
+    font-size: 0.65rem;
+    background: var(--success);
+    color: white;
+    padding: 0.15rem 0.4rem;
+    border-radius: 10px;
+    margin-top: 0.3rem;
+}
+
+.add-to-list-btn {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--gradient-primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: white;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.add-to-list-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow-sm);
+}
+
+.store-comparison-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.store-comparison-card h4 {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+}
+
+.store-totals {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.store-total-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+}
+
+.store-total-item.cheapest-store {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid var(--success);
+}
+
+.store-logo {
+    font-size: 1.2rem;
+}
+
+.store-total-item .store-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.store-total {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.store-total-item.cheapest-store .store-total {
+    color: var(--success);
+}
+
+.winner-badge {
+    font-size: 1rem;
+}
+
+.price-results-message {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--text-secondary);
+}
+
+.no-results-icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 0.75rem;
+    opacity: 0.5;
+}
+
+.suggestion {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+}
+
+/* ========================================
    Category Menu Styles
    ======================================== */
 
