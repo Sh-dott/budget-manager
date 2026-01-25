@@ -19,8 +19,16 @@ require('dotenv').config();
 const https = require('https');
 const http = require('http');
 const zlib = require('zlib');
+const fs = require('fs');
+const path = require('path');
 const { MongoClient } = require('mongodb');
 const { XMLParser } = require('fast-xml-parser');
+
+// Disable SSL verification for Israeli price portals (self-signed certs)
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+// Cookie file path for publishedprices.co.il session
+const COOKIE_FILE = path.join(process.env.USERPROFILE || process.env.HOME, 'cookies.txt');
 
 // MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/budget-manager';
@@ -35,43 +43,48 @@ const CHAINS = {
     },
     rami_levy: {
         name: 'רמי לוי',
-        baseUrl: 'http://url.publishedprices.co.il',
-        username: 'RasLevi',
+        baseUrl: 'https://url.publishedprices.co.il',
+        username: 'RamiLevi',
         type: 'publishedprices'
     },
     victory: {
         name: 'ויקטורי',
-        baseUrl: 'http://url.publishedprices.co.il',
-        username: 'Victory',
-        type: 'publishedprices'
+        baseUrl: 'https://laibcatalog.co.il',
+        type: 'laibcatalog'
     },
     yeinot_bitan: {
         name: 'יינות ביתן',
-        baseUrl: 'http://url.publishedprices.co.il',
+        baseUrl: 'https://url.publishedprices.co.il',
         username: 'yabormarket',
         type: 'publishedprices'
     },
     osher_ad: {
         name: 'אושר עד',
-        baseUrl: 'http://url.publishedprices.co.il',
+        baseUrl: 'https://url.publishedprices.co.il',
         username: 'osherad',
         type: 'publishedprices'
     },
     hazi_hinam: {
         name: 'חצי חינם',
-        baseUrl: 'http://url.publishedprices.co.il',
-        username: 'HasijHnam',
+        baseUrl: 'https://url.publishedprices.co.il',
+        username: 'HaijHnam',
         type: 'publishedprices'
     },
     mega: {
         name: 'מגה',
-        baseUrl: 'http://publishprice.mega.co.il',
+        baseUrl: 'https://publishprice.mega.co.il',
         type: 'mega'
     },
     tiv_taam: {
         name: 'טיב טעם',
-        baseUrl: 'http://url.publishedprices.co.il',
+        baseUrl: 'https://url.publishedprices.co.il',
         username: 'TivTaam',
+        type: 'publishedprices'
+    },
+    yohananof: {
+        name: 'יוחננוף',
+        baseUrl: 'https://url.publishedprices.co.il',
+        username: 'yohananof',
         type: 'publishedprices'
     }
 };
@@ -103,18 +116,67 @@ function categorize(name) {
     return 'כללי';
 }
 
-// HTTP fetch helper
+// Load cookie from file
+function loadCookie(domain) {
+    try {
+        if (fs.existsSync(COOKIE_FILE)) {
+            const content = fs.readFileSync(COOKIE_FILE, 'utf-8');
+            const lines = content.split('\n');
+            for (const line of lines) {
+                if (line.startsWith('#') || line.trim() === '') continue;
+                const parts = line.split('\t');
+                if (parts.length >= 7 && parts[0].includes(domain)) {
+                    return `${parts[5]}=${parts[6]}`;
+                }
+            }
+        }
+    } catch (e) {
+        // Ignore cookie loading errors
+    }
+    return null;
+}
+
+// HTTP fetch helper with cookie support
 function fetchUrl(url, options = {}) {
     return new Promise((resolve, reject) => {
-        const protocol = url.startsWith('https') ? https : http;
+        const urlObj = new URL(url);
+        const protocol = urlObj.protocol === 'https:' ? https : http;
         const timeout = options.timeout || 30000;
+
+        const reqOptions = {
+            hostname: urlObj.hostname,
+            port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+            path: urlObj.pathname + urlObj.search,
+            method: options.method || 'GET',
+            timeout,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': '*/*',
+                ...options.headers
+            }
+        };
+
+        // Add cookie if available
+        if (options.cookie) {
+            reqOptions.headers['Cookie'] = options.cookie;
+        }
 
         console.log(`  Fetching: ${url.substring(0, 80)}...`);
 
-        const req = protocol.get(url, { timeout }, (res) => {
+        const req = protocol.request(reqOptions, (res) => {
+            // Save cookies from response
+            const setCookie = res.headers['set-cookie'];
+            if (setCookie && options.saveCookie) {
+                options.saveCookie(setCookie);
+            }
+
             if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                console.log(`  Redirecting to: ${res.headers.location.substring(0, 50)}...`);
-                return fetchUrl(res.headers.location, options).then(resolve).catch(reject);
+                let redirectUrl = res.headers.location;
+                if (redirectUrl.startsWith('/')) {
+                    redirectUrl = `${urlObj.protocol}//${urlObj.host}${redirectUrl}`;
+                }
+                console.log(`  Redirecting to: ${redirectUrl.substring(0, 50)}...`);
+                return fetchUrl(redirectUrl, options).then(resolve).catch(reject);
             }
 
             if (res.statusCode !== 200) {
@@ -129,7 +191,7 @@ function fetchUrl(url, options = {}) {
                 // Check if gzipped
                 if (res.headers['content-encoding'] === 'gzip' ||
                     url.endsWith('.gz') ||
-                    (buffer[0] === 0x1f && buffer[1] === 0x8b)) {
+                    (buffer.length > 1 && buffer[0] === 0x1f && buffer[1] === 0x8b)) {
                     zlib.gunzip(buffer, (err, decompressed) => {
                         if (err) return reject(err);
                         resolve(decompressed.toString('utf-8'));
@@ -145,6 +207,7 @@ function fetchUrl(url, options = {}) {
             req.destroy();
             reject(new Error('Request timeout'));
         });
+        req.end();
     });
 }
 
@@ -251,7 +314,127 @@ async function fetchShufersal(limit = 10000) {
     return products.slice(0, limit);
 }
 
-// Fetch from PublishedPrices chains
+// Login to publishedprices.co.il and get session cookie
+async function loginToPublishedPrices(username) {
+    // First, try to use existing cookie from file
+    const existingCookie = loadCookie('publishedprices.co.il');
+    if (existingCookie) {
+        console.log(`  Using existing cookie from file`);
+        return existingCookie;
+    }
+
+    return new Promise((resolve, reject) => {
+        const postData = `username=${encodeURIComponent(username)}`;
+
+        const options = {
+            hostname: 'url.publishedprices.co.il',
+            port: 443,
+            path: '/login/user',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Length': Buffer.byteLength(postData),
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            const cookies = res.headers['set-cookie'];
+
+            // Consume the response body
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                if (cookies && cookies.length > 0) {
+                    // Extract the session cookie
+                    const sessionCookie = cookies.map(c => c.split(';')[0]).join('; ');
+                    resolve(sessionCookie);
+                } else {
+                    resolve(null);
+                }
+            });
+        });
+
+        req.on('error', reject);
+        req.write(postData);
+        req.end();
+    });
+}
+
+// Fetch with cookie and handle redirects properly
+async function fetchWithSession(url, cookie, maxRedirects = 5) {
+    return new Promise((resolve, reject) => {
+        const urlObj = new URL(url);
+        const protocol = urlObj.protocol === 'https:' ? https : http;
+
+        const options = {
+            hostname: urlObj.hostname,
+            port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+            path: urlObj.pathname + urlObj.search,
+            method: 'GET',
+            timeout: 60000,
+            headers: {
+                'Cookie': cookie,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+            }
+        };
+
+        const req = protocol.request(options, (res) => {
+            // Update cookie if new one is set
+            let newCookie = cookie;
+            if (res.headers['set-cookie']) {
+                const newCookies = res.headers['set-cookie'].map(c => c.split(';')[0]).join('; ');
+                newCookie = newCookies || cookie;
+            }
+
+            if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                if (maxRedirects <= 0) {
+                    return reject(new Error('Too many redirects'));
+                }
+                // Check if redirecting to login page - means auth failed
+                if (res.headers.location.includes('/login')) {
+                    return reject(new Error('Session expired or invalid'));
+                }
+                let redirectUrl = res.headers.location;
+                if (redirectUrl.startsWith('/')) {
+                    redirectUrl = `${urlObj.protocol}//${urlObj.host}${redirectUrl}`;
+                }
+                return fetchWithSession(redirectUrl, newCookie, maxRedirects - 1)
+                    .then(resolve)
+                    .catch(reject);
+            }
+
+            if (res.statusCode !== 200) {
+                return reject(new Error(`HTTP ${res.statusCode}`));
+            }
+
+            const chunks = [];
+            res.on('data', chunk => chunks.push(chunk));
+            res.on('end', () => {
+                const buffer = Buffer.concat(chunks);
+                if (buffer.length > 1 && buffer[0] === 0x1f && buffer[1] === 0x8b) {
+                    zlib.gunzip(buffer, (err, decompressed) => {
+                        if (err) return reject(err);
+                        resolve(decompressed.toString('utf-8'));
+                    });
+                } else {
+                    resolve(buffer.toString('utf-8'));
+                }
+            });
+        });
+
+        req.on('error', reject);
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('Request timeout'));
+        });
+        req.end();
+    });
+}
+
+// Fetch from PublishedPrices chains (Rami Levy, Yeinot Bitan, etc.)
 async function fetchPublishedPrices(chainId, limit = 10000) {
     const chain = CHAINS[chainId];
     if (!chain || chain.type !== 'publishedprices') return [];
@@ -260,53 +443,158 @@ async function fetchPublishedPrices(chainId, limit = 10000) {
     const products = [];
 
     try {
-        // Try to get file listing
-        const loginUrl = `${chain.baseUrl}/login/user`;
+        // Step 1: Login to get session
+        console.log(`  Logging in as ${chain.username}...`);
+        const cookie = await loginToPublishedPrices(chain.username);
 
-        // PublishedPrices requires a session - try direct file access
-        const today = new Date();
-        const dates = [];
-        for (let i = 0; i < 7; i++) {
-            const d = new Date(today);
-            d.setDate(d.getDate() - i);
-            dates.push(d.toISOString().split('T')[0].replace(/-/g, ''));
+        if (!cookie) {
+            console.log(`  ✗ Could not get session for ${chain.name}`);
+            return [];
         }
+        console.log(`  ✓ Got session cookie`);
 
-        for (const dateStr of dates) {
-            if (products.length >= limit) break;
+        // Step 2: Get file listing using JSON API
+        const apiUrl = `https://url.publishedprices.co.il/file/json/dir?iDisplayLength=100&sSearch=PriceFull`;
 
-            const possibleFiles = [
-                `PriceFull${dateStr}*.xml`,
-                `PriceFull*.xml`,
-                `pricefull.xml`,
-            ];
+        try {
+            console.log(`  Fetching file list via API...`);
+            const apiResponse = await fetchWithSession(apiUrl, cookie);
+            const apiData = JSON.parse(apiResponse);
 
-            // Try the file index page
-            const indexUrl = `${chain.baseUrl}/file/d/${chain.username}/`;
+            if (apiData.aaData && apiData.aaData.length > 0) {
+                console.log(`  Found ${apiData.aaData.length} files via API`);
 
-            try {
-                const indexHtml = await fetchUrl(indexUrl);
-
-                // Extract file links
-                const fileMatches = indexHtml.match(/href="([^"]*(?:Price|price)[^"]*\.(?:xml|gz))"/gi) || [];
-
-                for (const match of fileMatches.slice(0, 2)) {
+                for (const fileEntry of apiData.aaData.slice(0, 3)) {
                     if (products.length >= limit) break;
 
-                    const fileName = match.replace(/href="/i, '').replace(/"$/, '');
-                    const fileUrl = `${chain.baseUrl}/file/d/${chain.username}/${fileName}`;
-
                     try {
-                        const xmlContent = await fetchUrl(fileUrl, { timeout: 60000 });
+                        // Extract filename from HTML in API response
+                        const fileNameMatch = fileEntry[0].match(/href="([^"]+)"/);
+                        if (!fileNameMatch) continue;
+
+                        const fileName = fileNameMatch[1];
+                        const fileUrl = `https://url.publishedprices.co.il${fileName}`;
+
+                        console.log(`  Downloading: ${fileName.substring(0, 50)}...`);
+                        const xmlContent = await fetchWithSession(fileUrl, cookie);
                         const parsed = parsePriceXml(xmlContent, chainId, chain.name);
                         products.push(...parsed);
-                        console.log(`  Got ${parsed.length} products from ${fileName}`);
-                    } catch (e) {
-                        // Continue to next file
+                        console.log(`  Got ${parsed.length} products`);
+
+                        if (products.length >= limit) break;
+                    } catch (fileError) {
+                        console.log(`  Skipping file: ${fileError.message}`);
                     }
                 }
+            }
+        } catch (apiError) {
+            console.log(`  API method failed: ${apiError.message}`);
+
+            // Fallback: Try direct file listing
+            const indexUrl = `${chain.baseUrl}/file/d/${chain.username}/`;
+            const indexHtml = await fetchWithSession(indexUrl, cookie);
+
+            const fileMatches = [];
+            const linkRegex = /href="([^"]*(?:PriceFull|Price7)[^"]*\.(?:xml|gz|XML|GZ))"/gi;
+            let match;
+            while ((match = linkRegex.exec(indexHtml)) !== null) {
+                fileMatches.push(match[1]);
+            }
+
+            console.log(`  Found ${fileMatches.length} price files (fallback)`);
+
+            for (const fileName of fileMatches.slice(0, 3)) {
+                if (products.length >= limit) break;
+
+                try {
+                    const fileUrl = `${chain.baseUrl}/file/d/${chain.username}/${fileName}`;
+                    console.log(`  Downloading: ${fileName.substring(0, 50)}...`);
+
+                    const xmlContent = await fetchWithSession(fileUrl, cookie);
+                    const parsed = parsePriceXml(xmlContent, chainId, chain.name);
+                    products.push(...parsed);
+                    console.log(`  Got ${parsed.length} products`);
+
+                    if (products.length >= limit) break;
+                } catch (fileError) {
+                    console.log(`  Skipping ${fileName}: ${fileError.message}`);
+                }
+            }
+        }
+    } catch (error) {
+        console.error(`  ${chain.name} error: ${error.message}`);
+    }
+
+    return products.slice(0, limit);
+}
+
+// Fetch from laibcatalog.co.il (Victory)
+async function fetchLaibCatalog(chainId, limit = 10000) {
+    const chain = CHAINS[chainId];
+    if (!chain || chain.type !== 'laibcatalog') return [];
+
+    console.log(`\n📦 Fetching ${chain.name}...`);
+    const products = [];
+
+    try {
+        // Get file listing from laibcatalog
+        const indexUrl = `${chain.baseUrl}/`;
+        const indexHtml = await fetchUrl(indexUrl, { timeout: 60000 });
+
+        // Extract price file links
+        const fileMatches = [];
+        const linkRegex = /href="([^"]*(?:PriceFull|Price7)[^"]*\.(?:xml|gz|XML|GZ))"/gi;
+        let match;
+        while ((match = linkRegex.exec(indexHtml)) !== null) {
+            fileMatches.push(match[1]);
+        }
+
+        // Also try to find links in directory listing
+        const dirLinkRegex = /href="([^"]+\/)"/gi;
+        const directories = [];
+        while ((match = dirLinkRegex.exec(indexHtml)) !== null) {
+            if (!match[1].startsWith('..') && !match[1].startsWith('/')) {
+                directories.push(match[1]);
+            }
+        }
+
+        console.log(`  Found ${fileMatches.length} files, ${directories.length} directories`);
+
+        // Check directories for price files
+        for (const dir of directories.slice(0, 5)) {
+            if (products.length >= limit) break;
+
+            try {
+                const dirUrl = `${chain.baseUrl}/${dir}`;
+                const dirHtml = await fetchUrl(dirUrl, { timeout: 30000 });
+
+                const dirFileRegex = /href="([^"]*(?:PriceFull|Price7|price)[^"]*\.(?:xml|gz|XML|GZ))"/gi;
+                while ((match = dirFileRegex.exec(dirHtml)) !== null) {
+                    fileMatches.push(`${dir}${match[1]}`);
+                }
             } catch (e) {
-                console.log(`  Could not access ${chain.name} file index: ${e.message}`);
+                // Skip directory errors
+            }
+        }
+
+        // Download price files
+        for (const fileName of fileMatches.slice(0, 3)) {
+            if (products.length >= limit) break;
+
+            try {
+                const fileUrl = fileName.startsWith('http')
+                    ? fileName
+                    : `${chain.baseUrl}/${fileName}`;
+                console.log(`  Downloading: ${fileName.substring(0, 50)}...`);
+
+                const xmlContent = await fetchUrl(fileUrl, { timeout: 120000 });
+                const parsed = parsePriceXml(xmlContent, chainId, chain.name);
+                products.push(...parsed);
+                console.log(`  Got ${parsed.length} products`);
+
+                if (products.length >= limit) break;
+            } catch (fileError) {
+                console.log(`  Skipping ${fileName}: ${fileError.message}`);
             }
         }
     } catch (error) {
@@ -435,17 +723,32 @@ async function main() {
     for (const chainId of selectedChains) {
         try {
             let products = [];
+            const chain = CHAINS[chainId];
 
-            if (chainId === 'shufersal') {
-                products = await fetchShufersal(5000);
-            } else if (CHAINS[chainId]) {
-                products = await fetchPublishedPrices(chainId, 5000);
-            } else {
+            if (!chain) {
                 console.log(`Unknown chain: ${chainId}`);
                 continue;
             }
 
-            console.log(`  ✓ ${CHAINS[chainId]?.name || chainId}: ${products.length} products`);
+            switch (chain.type) {
+                case 'shufersal':
+                    products = await fetchShufersal(5000);
+                    break;
+                case 'publishedprices':
+                    products = await fetchPublishedPrices(chainId, 5000);
+                    break;
+                case 'laibcatalog':
+                    products = await fetchLaibCatalog(chainId, 5000);
+                    break;
+                case 'mega':
+                    // TODO: Mega has its own portal format
+                    console.log(`  ${chain.name}: Mega portal not implemented yet`);
+                    break;
+                default:
+                    console.log(`  Unknown chain type: ${chain.type}`);
+            }
+
+            console.log(`  ✓ ${chain.name}: ${products.length} products`);
             allProducts.push(...products);
         } catch (error) {
             console.error(`  ✗ ${chainId}: ${error.message}`);
