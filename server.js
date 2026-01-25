@@ -1370,7 +1370,7 @@ app.post('/api/sync/seed', async (req, res) => {
         console.log('Starting database seed...');
 
         // Run seed
-        await seedDatabase();
+        await seedDatabase(db);
 
         const productCount = await db.collection('products').countDocuments();
 
@@ -1657,7 +1657,7 @@ app.post('/api/sync/auto', async (req, res) => {
     console.log('Falling back to seed data...');
     try {
         const { seedDatabase } = require('./scripts/seed_products');
-        await seedDatabase();
+        await seedDatabase(db);
         const productCount = await db.collection('products').countDocuments();
 
         await db.collection('settings').updateOne(

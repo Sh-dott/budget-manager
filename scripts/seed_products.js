@@ -587,14 +587,19 @@ const PRODUCTS = [
     }
 ];
 
-async function seedDatabase() {
-    const client = new MongoClient(MONGODB_URI);
+async function seedDatabase(externalDb = null) {
+    let client = null;
+    let db = externalDb;
 
     try {
-        await client.connect();
-        console.log('Connected to MongoDB');
+        // Use external db if provided, otherwise create our own connection
+        if (!db) {
+            client = new MongoClient(MONGODB_URI);
+            await client.connect();
+            console.log('Connected to MongoDB');
+            db = client.db();
+        }
 
-        const db = client.db();
         const productsCollection = db.collection('products');
 
         // Clear existing products
@@ -649,9 +654,16 @@ async function seedDatabase() {
 
     } catch (error) {
         console.error('Error seeding database:', error);
-        process.exit(1);
+        // Only exit if running standalone
+        if (require.main === module) {
+            process.exit(1);
+        }
+        throw error;
     } finally {
-        await client.close();
+        // Only close client if we created it
+        if (client) {
+            await client.close();
+        }
     }
 }
 
