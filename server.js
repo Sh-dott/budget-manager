@@ -1492,6 +1492,56 @@ async function storeKaggleProducts(products) {
     return stats;
 }
 
+// POST /api/sync/openfoodfacts - Import from Open Food Facts (no credentials, real products!)
+app.post('/api/sync/openfoodfacts', async (req, res) => {
+    try {
+        const limit = req.body.limit || 500;
+
+        console.log('Starting Open Food Facts import...');
+
+        const { importFromOpenFoodFacts } = require('./scripts/import_openfoodfacts');
+        const result = await importFromOpenFoodFacts({ limit });
+
+        if (!result.success || result.products.length === 0) {
+            return res.status(500).json({
+                success: false,
+                error: 'Open Food Facts import returned no products'
+            });
+        }
+
+        // Store products
+        console.log(`Storing ${result.products.length} products from Open Food Facts...`);
+        const stats = await storeKaggleProducts(result.products);
+
+        // Update sync status
+        await db.collection('settings').updateOne(
+            { _id: 'sync-status' },
+            {
+                $set: {
+                    lastSync: new Date(),
+                    type: 'openfoodfacts',
+                    totalProducts: result.totalProducts,
+                    chainsSummary: result.chainsSummary,
+                    storeStats: stats
+                }
+            },
+            { upsert: true }
+        );
+
+        res.json({
+            success: true,
+            message: 'Open Food Facts import completed',
+            totalProducts: result.totalProducts,
+            storeStats: stats,
+            note: 'Real Israeli products from Open Food Facts with estimated prices'
+        });
+
+    } catch (error) {
+        console.error('Open Food Facts import error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // POST /api/sync/direct - Import directly from official price portals (no credentials needed)
 app.post('/api/sync/direct', async (req, res) => {
     try {
