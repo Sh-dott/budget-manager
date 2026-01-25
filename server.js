@@ -1386,6 +1386,308 @@ app.post('/api/sync/seed', async (req, res) => {
     }
 });
 
+// POST /api/sync/kaggle - Import from Kaggle dataset (recommended)
+app.post('/api/sync/kaggle', async (req, res) => {
+    try {
+        const limit = req.body.limit || 5000;
+        const chains = req.body.chains; // Optional: specific chains
+
+        console.log('Starting Kaggle dataset import...');
+
+        // Check for Kaggle credentials
+        if (!process.env.KAGGLE_USERNAME || !process.env.KAGGLE_KEY) {
+            return res.status(400).json({
+                success: false,
+                error: 'Kaggle credentials not configured',
+                instructions: [
+                    '1. Create Kaggle account at kaggle.com',
+                    '2. Go to Account Settings -> Create New API Token',
+                    '3. Set KAGGLE_USERNAME and KAGGLE_KEY in Render environment variables'
+                ]
+            });
+        }
+
+        // Create temp file for output
+        const os = require('os');
+        const outputFile = path.join(os.tmpdir(), `kaggle_import_${Date.now()}.json`);
+
+        // Build Python command args
+        const args = [
+            path.join(__dirname, 'scripts/import_kaggle.py'),
+            '--output', outputFile,
+            '--limit', String(limit)
+        ];
+        if (chains && chains.length > 0) {
+            args.push('--chains', ...chains);
+        }
+
+        // Determine Python command
+        const pythonCmd = process.platform === 'win32' ? 'py' : 'python3';
+
+        // Run Python importer
+        const result = await new Promise((resolve, reject) => {
+            const python = spawn(pythonCmd, args, {
+                env: {
+                    ...process.env,
+                    PYTHONIOENCODING: 'utf-8'
+                }
+            });
+
+            let stderr = '';
+            python.stderr.on('data', (data) => {
+                stderr += data.toString();
+                console.log('[Kaggle]', data.toString().trim());
+            });
+
+            python.on('close', async (code) => {
+                if (code === 0) {
+                    try {
+                        const fs = require('fs');
+                        const jsonData = fs.readFileSync(outputFile, 'utf-8');
+                        const result = JSON.parse(jsonData);
+                        // Clean up temp file
+                        try { fs.unlinkSync(outputFile); } catch (e) {}
+                        resolve(result);
+                    } catch (parseError) {
+                        reject(new Error(`Failed to parse Kaggle output: ${parseError.message}`));
+                    }
+                } else {
+                    reject(new Error(`Kaggle import failed (code ${code}): ${stderr}`));
+                }
+            });
+
+            python.on('error', (err) => {
+                reject(new Error(`Failed to start Python: ${err.message}`));
+            });
+        });
+
+        if (!result.success) {
+            return res.status(500).json(result);
+        }
+
+        // Store products in MongoDB
+        console.log(`Storing ${result.products.length} products in MongoDB...`);
+        const stats = await storeKaggleProducts(result.products);
+
+        // Update sync status
+        await db.collection('settings').updateOne(
+            { _id: 'sync-status' },
+            {
+                $set: {
+                    lastSync: new Date(),
+                    type: 'kaggle',
+                    totalProducts: result.totalProducts,
+                    chainsSummary: result.chainsSummary,
+                    storeStats: stats
+                }
+            },
+            { upsert: true }
+        );
+
+        res.json({
+            success: true,
+            message: 'Kaggle import completed',
+            totalProducts: result.totalProducts,
+            chainsSummary: result.chainsSummary,
+            storeStats: stats,
+            note: 'Products imported from Kaggle Israeli Supermarkets 2024 dataset'
+        });
+
+    } catch (error) {
+        console.error('Kaggle import error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Store products from Kaggle import
+async function storeKaggleProducts(products) {
+    const stats = { inserted: 0, updated: 0, errors: 0 };
+
+    for (const product of products) {
+        try {
+            // Find cheapest price
+            const cheapestPrice = product.prices.reduce((min, p) =>
+                p.price < min.price ? p : min, product.prices[0]);
+
+            const result = await db.collection('products').updateOne(
+                { barcode: product.barcode },
+                {
+                    $set: {
+                        name: product.name,
+                        manufacturer: product.manufacturer || '',
+                        category: product.category || 'כללי',
+                        image: product.image,
+                        prices: product.prices,
+                        cheapestPrice: cheapestPrice.price,
+                        cheapestChain: cheapestPrice.chainName,
+                        unitQty: product.unitQty || '',
+                        unitMeasure: product.unitMeasure || '',
+                        lastUpdated: new Date(),
+                        dataSource: 'kaggle'
+                    }
+                },
+                { upsert: true }
+            );
+
+            if (result.upsertedCount > 0) {
+                stats.inserted++;
+            } else if (result.modifiedCount > 0) {
+                stats.updated++;
+            }
+        } catch (error) {
+            stats.errors++;
+        }
+    }
+
+    return stats;
+}
+
+// POST /api/sync/direct - Import directly from official price portals (no credentials needed)
+app.post('/api/sync/direct', async (req, res) => {
+    try {
+        const limit = req.body.limit || 3000;
+        const chains = req.body.chains || ['shufersal', 'rami_levy', 'victory'];
+
+        console.log('Starting direct price portal import...');
+
+        const { importPrices } = require('./scripts/import_prices_direct');
+        const result = await importPrices({ limit, chains });
+
+        if (!result.success || result.products.length === 0) {
+            return res.status(500).json({
+                success: false,
+                error: 'Direct import returned no products. Price portals may be geo-blocked or unavailable.',
+                suggestion: 'Try /api/sync/seed for demo data, or /api/sync/kaggle with credentials.'
+            });
+        }
+
+        // Store products
+        console.log(`Storing ${result.products.length} products...`);
+        const stats = await storeKaggleProducts(result.products);
+
+        // Update sync status
+        await db.collection('settings').updateOne(
+            { _id: 'sync-status' },
+            {
+                $set: {
+                    lastSync: new Date(),
+                    type: 'direct',
+                    totalProducts: result.totalProducts,
+                    chainsSummary: result.chainsSummary,
+                    storeStats: stats
+                }
+            },
+            { upsert: true }
+        );
+
+        res.json({
+            success: true,
+            message: 'Direct import completed',
+            totalProducts: result.totalProducts,
+            chainsSummary: result.chainsSummary,
+            storeStats: stats,
+            note: 'Products imported from official Israeli price transparency portals'
+        });
+
+    } catch (error) {
+        console.error('Direct import error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/sync/auto - Automatically choose best import method
+app.post('/api/sync/auto', async (req, res) => {
+    console.log('Starting auto-import (trying best available method)...');
+
+    // Method 1: Try Kaggle if credentials are set
+    if (process.env.KAGGLE_USERNAME && process.env.KAGGLE_KEY) {
+        console.log('Kaggle credentials found, trying Kaggle import...');
+        try {
+            // Forward to Kaggle endpoint
+            const kaggleReq = { body: req.body };
+            const kaggleRes = {
+                json: (data) => res.json({ ...data, method: 'kaggle' }),
+                status: (code) => ({ json: (data) => res.status(code).json(data) })
+            };
+            return app._router.handle(
+                Object.assign(req, { url: '/api/sync/kaggle', method: 'POST' }),
+                res,
+                () => {}
+            );
+        } catch (e) {
+            console.log('Kaggle failed, trying direct...');
+        }
+    }
+
+    // Method 2: Try direct import from price portals
+    console.log('Trying direct import from price portals...');
+    try {
+        const { importPrices } = require('./scripts/import_prices_direct');
+        const result = await importPrices({ limit: 3000 });
+
+        if (result.success && result.products.length > 0) {
+            const stats = await storeKaggleProducts(result.products);
+
+            await db.collection('settings').updateOne(
+                { _id: 'sync-status' },
+                {
+                    $set: {
+                        lastSync: new Date(),
+                        type: 'direct',
+                        totalProducts: result.totalProducts,
+                        storeStats: stats
+                    }
+                },
+                { upsert: true }
+            );
+
+            return res.json({
+                success: true,
+                method: 'direct',
+                message: 'Imported from official price portals',
+                totalProducts: result.totalProducts,
+                storeStats: stats
+            });
+        }
+    } catch (e) {
+        console.log('Direct import failed:', e.message);
+    }
+
+    // Method 3: Fall back to seed data
+    console.log('Falling back to seed data...');
+    try {
+        const { seedDatabase } = require('./scripts/seed_products');
+        await seedDatabase();
+        const productCount = await db.collection('products').countDocuments();
+
+        await db.collection('settings').updateOne(
+            { _id: 'sync-status' },
+            {
+                $set: {
+                    lastSync: new Date(),
+                    type: 'seed',
+                    totalProducts: productCount
+                }
+            },
+            { upsert: true }
+        );
+
+        return res.json({
+            success: true,
+            method: 'seed',
+            message: 'Imported seed data (45+ real Israeli products)',
+            totalProducts: productCount,
+            note: 'Live imports unavailable. Using curated seed data with realistic prices.'
+        });
+    } catch (seedError) {
+        return res.status(500).json({
+            success: false,
+            error: 'All import methods failed',
+            details: seedError.message
+        });
+    }
+});
+
 // POST /api/sync/scrape - Trigger Python scraper for all/specified chains
 app.post('/api/sync/scrape', async (req, res) => {
     try {

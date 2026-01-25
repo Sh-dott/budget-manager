@@ -1,2 +1,5 @@
 # Israeli Supermarket Price Scraping
 il-supermarket-scraper
+
+# Kaggle API for dataset download
+kaggle
