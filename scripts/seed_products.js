@@ -625,11 +625,17 @@ async function seedDatabase(externalDb = null) {
         const result = await productsCollection.insertMany(productsToInsert);
         console.log(`Inserted ${result.insertedCount} products`);
 
-        // Create indexes
-        await productsCollection.createIndex({ barcode: 1 }, { unique: true });
-        await productsCollection.createIndex({ name: 'text' });
-        await productsCollection.createIndex({ category: 1 });
-        console.log('Created indexes');
+        // Create indexes (skip if already exist)
+        try {
+            await productsCollection.createIndex({ barcode: 1 }, { unique: true, sparse: true });
+        } catch (e) { /* Index exists */ }
+        try {
+            await productsCollection.createIndex({ name: 'text' }, { default_language: 'none' });
+        } catch (e) { /* Index exists */ }
+        try {
+            await productsCollection.createIndex({ category: 1 });
+        } catch (e) { /* Index exists */ }
+        console.log('Indexes verified');
 
         // Update sync status
         await db.collection('settings').updateOne(
