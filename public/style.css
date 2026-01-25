@@ -3262,6 +3262,33 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 
 .chain-price-item:hover {
     border-color: var(--primary-light);
+    cursor: pointer;
+    transform: translateY(-2px);
+}
+
+.chain-price-item:active {
+    transform: translateY(0);
+}
+
+.chain-add-btn {
+    margin-top: 0.4rem;
+    padding: 0.3rem 0.6rem;
+    background: var(--gradient-primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: white;
+    font-size: 0.75rem;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: all 0.2s ease;
+}
+
+.chain-price-item:hover .chain-add-btn {
+    opacity: 1;
+}
+
+.chain-add-btn:hover {
+    transform: scale(1.1);
 }
 
 .chain-price-item.cheapest {
@@ -3361,6 +3388,12 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     font-weight: 500;
 }
 
+.store-count {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-left: 0.5rem;
+}
+
 .store-total {
     font-weight: 700;
     color: var(--text-primary);
@@ -3391,6 +3424,519 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     font-size: 0.8rem;
     color: var(--text-muted);
     margin-top: 0.5rem;
+}
+
+/* ========================================
+   Advanced Price Filters
+   ======================================== */
+
+.price-filters-container {
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    animation: slideDown 0.3s ease;
+}
+
+.filters-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.filters-header h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.clear-filters-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.clear-filters-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--primary);
+}
+
+.filter-group {
+    margin-bottom: 1rem;
+}
+
+.filter-group:last-child {
+    margin-bottom: 0;
+}
+
+.filter-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+/* Chain Filter Grid */
+.chain-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.4rem;
+}
+
+.chain-filter-item {
+    cursor: pointer;
+}
+
+.chain-filter-item input[type="checkbox"] {
+    display: none;
+}
+
+.chain-checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.5rem 0.4rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.chain-filter-item input[type="checkbox"]:checked + .chain-checkbox {
+    background: rgba(124, 58, 237, 0.15);
+    border-color: var(--primary);
+    color: var(--primary);
+    font-weight: 500;
+}
+
+.chain-checkbox:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-light);
+}
+
+/* Price Range Inputs */
+.price-range-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.price-filter-input {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.price-filter-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.price-filter-input::placeholder {
+    color: var(--text-muted);
+}
+
+.range-separator {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* Sort Options */
+.sort-options,
+.view-options {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.sort-btn,
+.view-btn {
+    flex: 1;
+    min-width: 70px;
+    padding: 0.5rem 0.6rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.sort-btn:hover,
+.view-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-light);
+}
+
+.sort-btn.active,
+.view-btn.active {
+    background: var(--gradient-primary);
+    border-color: var(--primary);
+    color: white;
+    font-weight: 500;
+}
+
+/* Compact View Styles */
+.products-list.compact-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.products-list.compact-view .product-card {
+    border-radius: var(--radius-sm);
+}
+
+.products-list.compact-view .product-card-header {
+    padding: 0.6rem 0.8rem;
+}
+
+.products-list.compact-view .product-image {
+    width: 35px;
+    height: 35px;
+}
+
+.products-list.compact-view .product-name {
+    font-size: 0.9rem;
+}
+
+.products-list.compact-view .cheapest-price {
+    font-size: 1rem;
+}
+
+.products-list.compact-view .product-details-expanded {
+    padding: 0 0.8rem 0.8rem;
+}
+
+.products-list.compact-view .chain-prices-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.3rem;
+}
+
+.products-list.compact-view .chain-price-item {
+    padding: 0.4rem;
+}
+
+.products-list.compact-view .chain-logo {
+    font-size: 1rem;
+}
+
+.products-list.compact-view .chain-name {
+    font-size: 0.7rem;
+}
+
+.products-list.compact-view .chain-price {
+    font-size: 0.85rem;
+}
+
+/* Table View Styles */
+.products-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.products-table thead {
+    background: var(--bg-glass);
+}
+
+.products-table th {
+    padding: 0.75rem 0.5rem;
+    text-align: right;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+}
+
+.products-table td {
+    padding: 0.6rem 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.products-table tr:last-child td {
+    border-bottom: none;
+}
+
+.products-table tr:hover td {
+    background: var(--bg-hover);
+}
+
+.products-table .product-img-small {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.products-table .price-cell {
+    font-weight: 700;
+    color: var(--success);
+}
+
+.products-table .store-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.products-table .savings-cell {
+    color: var(--success);
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
+.products-table .all-prices-cell {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.table-add-btn {
+    padding: 0.3rem 0.5rem;
+    background: var(--gradient-primary);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: white;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.table-add-btn:hover {
+    transform: scale(1.05);
+}
+
+/* Active Filters Display */
+.active-filters-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+}
+
+.active-filter-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.5rem;
+    background: rgba(124, 58, 237, 0.15);
+    border: 1px solid var(--primary-light);
+    border-radius: 20px;
+    font-size: 0.7rem;
+    color: var(--primary);
+}
+
+.remove-filter-btn {
+    background: transparent;
+    border: none;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 0;
+    margin-right: -0.2rem;
+}
+
+.remove-filter-btn:hover {
+    color: var(--error);
+}
+
+/* Improved Product Card with Chain Ribbon */
+.product-card-improved {
+    position: relative;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.product-card-improved:hover {
+    border-color: var(--primary-light);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.product-card-improved.featured {
+    border-color: var(--success);
+}
+
+.cheapest-ribbon {
+    position: absolute;
+    top: 10px;
+    left: -25px;
+    background: var(--success);
+    color: white;
+    padding: 0.2rem 2rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    transform: rotate(-45deg);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.product-main-content {
+    display: flex;
+    padding: 1rem;
+    gap: 0.75rem;
+}
+
+.product-image-container {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.product-image-lg {
+    width: 60px;
+    height: 60px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    background: var(--bg-glass);
+}
+
+.product-info-section {
+    flex: 1;
+    min-width: 0;
+}
+
+.product-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    margin-bottom: 0.2rem;
+    line-height: 1.3;
+}
+
+.product-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+}
+
+.price-highlight {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.main-price {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--success);
+}
+
+.price-store-name {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.savings-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    margin-top: 0.3rem;
+    padding: 0.2rem 0.5rem;
+    background: rgba(16, 185, 129, 0.1);
+    border-radius: 20px;
+    font-size: 0.7rem;
+    color: var(--success);
+    font-weight: 500;
+}
+
+.stores-quick-view {
+    display: flex;
+    gap: 0.3rem;
+    padding: 0.5rem 1rem;
+    background: var(--bg-glass);
+    border-top: 1px solid var(--border);
+    overflow-x: auto;
+}
+
+.store-quick-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.4rem 0.6rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    min-width: 60px;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.store-quick-item:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary-light);
+    transform: translateY(-2px);
+}
+
+.store-quick-item.best {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid var(--success);
+}
+
+.store-quick-emoji {
+    font-size: 1rem;
+}
+
+.store-quick-price {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.store-quick-item.best .store-quick-price {
+    color: var(--success);
+}
+
+/* Mobile responsive for filters */
+@media (max-width: 768px) {
+    .chain-filter-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .sort-options,
+    .view-options {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+
+    .sort-btn,
+    .view-btn {
+        flex: 0 0 auto;
+        min-width: 60px;
+    }
 }
 
 /* ========================================

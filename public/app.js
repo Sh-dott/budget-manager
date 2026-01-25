@@ -23,6 +23,15 @@ let state = {
     searchMaxAmount: ''
 };
 
+// Price Search State
+let priceSearchState = {
+    originalResults: null,  // Store original API results
+    filteredProducts: [],   // Currently filtered products
+    selectedChains: [],     // Selected chain filters
+    sortBy: 'price-asc',    // price-asc, price-desc, name
+    viewMode: 'cards'       // cards, compact, table
+};
+
 // Hebrew month names
 const hebrewMonths = [
     'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
@@ -2126,6 +2135,7 @@ const chainLogos = {
 async function searchPrices() {
     const input = document.getElementById('priceSearchInput');
     const results = document.getElementById('priceSearchResults');
+    const filtersContainer = document.getElementById('priceFiltersContainer');
     if (!input || !results) return;
 
     const query = input.value.trim();
@@ -2135,6 +2145,7 @@ async function searchPrices() {
     }
 
     results.innerHTML = '<div class="widget-loading">🔍 מחפש מחירים בסופרמרקטים...</div>';
+    if (filtersContainer) filtersContainer.style.display = 'none';
 
     try {
         const response = await fetch(`${API_URL}/api/prices/search?q=${encodeURIComponent(query)}`);
@@ -2143,93 +2154,20 @@ async function searchPrices() {
         if (result.success) {
             const data = result.results;
 
+            // Store original results for filtering
+            priceSearchState.originalResults = data;
+
+            // Reset filters on new search
+            resetPriceFilters();
+
             // New format: multiple products
             if (data.products && data.products.length > 0) {
-                const productsHtml = data.products.map((product, idx) => {
-                    const hasMultiplePrices = product.stores && product.stores.length > 1;
-                    const savings = hasMultiplePrices
-                        ? (product.stores[product.stores.length - 1].price - product.stores[0].price).toFixed(2)
-                        : 0;
+                // Show filters panel
+                if (filtersContainer) filtersContainer.style.display = 'block';
 
-                    return `
-                        <div class="product-card ${idx === 0 ? 'featured' : ''}">
-                            <div class="product-card-header" onclick="toggleProductDetails(this)">
-                                <div class="product-info">
-                                    <img src="${product.image}" alt="${product.name}" class="product-image"
-                                         onerror="this.style.display='none'">
-                                    <div class="product-details">
-                                        <span class="product-name">${product.name}</span>
-                                        <span class="product-category">${product.category || ''}</span>
-                                    </div>
-                                </div>
-                                <div class="product-price-summary">
-                                    ${product.cheapestPrice ? `
-                                        <span class="cheapest-price">₪${product.cheapestPrice.toFixed(2)}</span>
-                                        <span class="cheapest-store">${chainLogos[product.cheapestStore] || '🏪'} ${product.cheapestStore}</span>
-                                    ` : '<span class="no-price">אין מחיר</span>'}
-                                    ${hasMultiplePrices ? `<span class="expand-icon">▼</span>` : ''}
-                                </div>
-                            </div>
-
-                            ${hasMultiplePrices ? `
-                                <div class="product-details-expanded" style="display: none;">
-                                    <div class="savings-banner">
-                                        💰 חסוך עד ₪${savings} בבחירת הרשת הזולה!
-                                    </div>
-                                    <div class="chain-prices-grid">
-                                        ${product.stores.map((store, storeIdx) => `
-                                            <div class="chain-price-item ${storeIdx === 0 ? 'cheapest' : ''}">
-                                                <span class="chain-logo">${chainLogos[store.name] || '🏪'}</span>
-                                                <span class="chain-name">${store.name}</span>
-                                                <span class="chain-price ${storeIdx === 0 ? 'best-price' : ''}">
-                                                    ₪${store.price.toFixed(2)}
-                                                </span>
-                                                ${storeIdx === 0 ? '<span class="best-badge">הכי זול!</span>' : ''}
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                    <button class="add-to-list-btn" onclick="addProductToShoppingList('${product.name.replace(/'/g, "\\'")}', ${product.cheapestPrice})">
-                                        ➕ הוסף לרשימת קניות
-                                    </button>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `;
-                }).join('');
-
-                // Store comparison summary
-                const storeComparisonHtml = data.byStore && data.byStore.length > 0 ? `
-                    <div class="store-comparison-card">
-                        <h4>📊 השוואת סל קניות לפי רשת</h4>
-                        <div class="store-totals">
-                            ${data.byStore.slice(0, 5).map((store, idx) => `
-                                <div class="store-total-item ${idx === 0 ? 'cheapest-store' : ''}">
-                                    <span class="store-logo">${chainLogos[store.store] || '🏪'}</span>
-                                    <span class="store-name">${store.store}</span>
-                                    <span class="store-total">₪${store.totalPrice.toFixed(2)}</span>
-                                    ${idx === 0 ? '<span class="winner-badge">🏆</span>' : ''}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                ` : '';
-
-                results.innerHTML = `
-                    <div class="price-results-container">
-                        <div class="results-header">
-                            <span class="results-count">נמצאו ${data.totalFound} מוצרים</span>
-                            ${data.dataSource === 'real' ? '<span class="real-data-badge">🔴 מחירים בזמן אמת</span>' : ''}
-                        </div>
-
-                        ${storeComparisonHtml}
-
-                        <div class="products-list">
-                            ${productsHtml}
-                        </div>
-
-                        <div class="price-disclaimer">${data.disclaimer || ''}</div>
-                    </div>
-                `;
+                // Apply initial display
+                priceSearchState.filteredProducts = [...data.products];
+                renderPriceResults();
             }
             // Old format fallback (single product)
             else if (data.stores && data.stores.length > 0) {
@@ -2279,10 +2217,397 @@ async function searchPrices() {
     }
 }
 
-function toggleProductDetails(header) {
-    const details = header.nextElementSibling;
-    const icon = header.querySelector('.expand-icon');
-    if (details && details.classList.contains('product-details-expanded')) {
+// Reset price filters to defaults
+function resetPriceFilters() {
+    priceSearchState.selectedChains = [];
+    priceSearchState.sortBy = 'price-asc';
+    priceSearchState.viewMode = 'cards';
+
+    // Reset UI
+    document.querySelectorAll('#chainFilterGrid input[type="checkbox"]').forEach(cb => cb.checked = false);
+
+    // Reset sort buttons
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.sort === 'price-asc');
+    });
+
+    // Reset view buttons
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === 'cards');
+    });
+}
+
+// Clear all filters
+function clearPriceFilters() {
+    resetPriceFilters();
+    if (priceSearchState.originalResults?.products) {
+        priceSearchState.filteredProducts = [...priceSearchState.originalResults.products];
+        renderPriceResults();
+    }
+}
+
+// Apply filters to results
+function applyPriceFilters() {
+    if (!priceSearchState.originalResults?.products) return;
+
+    // Get selected chains
+    priceSearchState.selectedChains = [];
+    document.querySelectorAll('#chainFilterGrid input[type="checkbox"]:checked').forEach(cb => {
+        priceSearchState.selectedChains.push(cb.value);
+    });
+
+    // Filter products
+    let filtered = [...priceSearchState.originalResults.products];
+
+    // Filter by chains - show products available in selected chains
+    if (priceSearchState.selectedChains.length > 0) {
+        filtered = filtered.map(product => {
+            // Filter stores to only selected chains
+            const filteredStores = product.stores.filter(store =>
+                priceSearchState.selectedChains.includes(store.name)
+            );
+
+            if (filteredStores.length === 0) return null;
+
+            // Recalculate cheapest from filtered stores
+            const sortedStores = [...filteredStores].sort((a, b) => a.price - b.price);
+
+            return {
+                ...product,
+                stores: sortedStores,
+                cheapestPrice: sortedStores[0]?.price,
+                cheapestStore: sortedStores[0]?.name
+            };
+        }).filter(p => p !== null);
+    }
+
+    // Apply sorting
+    filtered = sortProducts(filtered);
+
+    priceSearchState.filteredProducts = filtered;
+    renderPriceResults();
+}
+
+// Sort products based on current sort option
+function sortProducts(products) {
+    const sorted = [...products];
+
+    switch (priceSearchState.sortBy) {
+        case 'price-asc':
+            sorted.sort((a, b) => (a.cheapestPrice || 999) - (b.cheapestPrice || 999));
+            break;
+        case 'price-desc':
+            sorted.sort((a, b) => (b.cheapestPrice || 0) - (a.cheapestPrice || 0));
+            break;
+        case 'name':
+            sorted.sort((a, b) => a.name.localeCompare(b.name, 'he'));
+            break;
+    }
+
+    return sorted;
+}
+
+// Set sort option
+function setSortOption(sortBy) {
+    priceSearchState.sortBy = sortBy;
+
+    // Update UI
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.sort === sortBy);
+    });
+
+    applyPriceFilters();
+}
+
+// Set view option
+function setViewOption(viewMode) {
+    priceSearchState.viewMode = viewMode;
+
+    // Update UI
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === viewMode);
+    });
+
+    renderPriceResults();
+}
+
+// Render price results based on current state
+function renderPriceResults() {
+    const results = document.getElementById('priceSearchResults');
+    if (!results) return;
+
+    const data = priceSearchState.originalResults;
+    const products = priceSearchState.filteredProducts;
+
+    if (products.length === 0) {
+        results.innerHTML = `
+            <div class="price-results-message">
+                <span class="no-results-icon">🔍</span>
+                <p>לא נמצאו מוצרים התואמים לסינון</p>
+                <p class="suggestion">נסה להרחיב את הסינון או לבחור רשתות נוספות</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Build active filters display
+    const activeFiltersHtml = buildActiveFiltersHtml();
+
+    // Build products list based on view mode
+    let productsHtml;
+    switch (priceSearchState.viewMode) {
+        case 'compact':
+            productsHtml = buildCompactView(products);
+            break;
+        case 'table':
+            productsHtml = buildTableView(products);
+            break;
+        default:
+            productsHtml = buildCardsView(products);
+    }
+
+    results.innerHTML = `
+        <div class="price-results-container">
+            <div class="results-header">
+                <span class="results-count">מציג ${products.length} מתוך ${data.totalFound} מוצרים</span>
+                ${data.dataSource === 'real' ? '<span class="real-data-badge">🔴 מחירים בזמן אמת</span>' : ''}
+            </div>
+
+            ${activeFiltersHtml}
+            ${productsHtml}
+
+            <div class="price-disclaimer">${data.disclaimer || ''}</div>
+        </div>
+    `;
+}
+
+// Build active filters display
+function buildActiveFiltersHtml() {
+    const filters = [];
+
+    if (priceSearchState.selectedChains.length > 0) {
+        priceSearchState.selectedChains.forEach(chain => {
+            filters.push(`
+                <span class="active-filter-tag">
+                    ${chainLogos[chain] || '🏪'} ${chain}
+                    <button class="remove-filter-btn" onclick="removeChainFilter('${chain}')">&times;</button>
+                </span>
+            `);
+        });
+    }
+
+    if (filters.length === 0) return '';
+
+    return `<div class="active-filters-display">${filters.join('')}</div>`;
+}
+
+// Remove individual chain filter
+function removeChainFilter(chain) {
+    const checkbox = document.querySelector(`#chainFilterGrid input[value="${chain}"]`);
+    if (checkbox) checkbox.checked = false;
+    applyPriceFilters();
+}
+
+// Build cards view (default)
+function buildCardsView(products) {
+    const productsHtml = products.map((product, idx) => {
+        const hasMultiplePrices = product.stores && product.stores.length > 1;
+        const savings = hasMultiplePrices
+            ? (product.stores[product.stores.length - 1].price - product.stores[0].price).toFixed(2)
+            : 0;
+
+        // Quick store preview (first 4 stores)
+        const quickStoresHtml = product.stores.slice(0, 4).map((store, storeIdx) => `
+            <div class="store-quick-item ${storeIdx === 0 ? 'best' : ''}" onclick="event.stopPropagation(); addProductFromChain('${product.name.replace(/'/g, "\\'")}', '${store.name}', ${store.price})" title="הוסף מ${store.name}">
+                <span class="store-quick-emoji">${chainLogos[store.name] || '🏪'}</span>
+                <span class="store-quick-price">₪${store.price.toFixed(2)}</span>
+            </div>
+        `).join('');
+
+        return `
+            <div class="product-card-improved ${idx === 0 ? 'featured' : ''}">
+                ${idx === 0 && savings > 0 ? '<div class="cheapest-ribbon">המומלץ</div>' : ''}
+
+                <div class="product-main-content" onclick="toggleProductDetails(this.closest('.product-card-improved'))" style="cursor: pointer;">
+                    <div class="product-image-container">
+                        <img src="${product.image}" alt="${product.name}" class="product-image-lg"
+                             onerror="this.style.display='none'">
+                    </div>
+                    <div class="product-info-section">
+                        <div class="product-title">${product.name}</div>
+                        <div class="product-meta">${product.category || ''} ${product.manufacturer ? '• ' + product.manufacturer : ''}</div>
+                        <div class="price-highlight">
+                            ${product.cheapestPrice ? `
+                                <span class="main-price">₪${product.cheapestPrice.toFixed(2)}</span>
+                                <span class="price-store-name">${chainLogos[product.cheapestStore] || '🏪'} ${product.cheapestStore}</span>
+                            ` : '<span class="no-price">אין מחיר</span>'}
+                        </div>
+                        ${savings > 0 ? `
+                            <div class="savings-tag">💰 חסוך עד ₪${savings}</div>
+                        ` : ''}
+                    </div>
+                    ${hasMultiplePrices ? '<span class="expand-icon" style="align-self: center; margin-right: 0.5rem;">▼</span>' : ''}
+                </div>
+
+                ${hasMultiplePrices ? `
+                    <div class="stores-quick-view">
+                        ${quickStoresHtml}
+                        ${product.stores.length > 4 ? `<div class="store-quick-item" onclick="toggleProductDetails(this.closest('.product-card-improved'))">+${product.stores.length - 4}</div>` : ''}
+                    </div>
+
+                    <div class="product-details-expanded" style="display: none;">
+                        <div class="chain-prices-grid">
+                            ${product.stores.map((store, storeIdx) => `
+                                <div class="chain-price-item ${storeIdx === 0 ? 'cheapest' : ''}" onclick="event.stopPropagation(); addProductFromChain('${product.name.replace(/'/g, "\\'")}', '${store.name}', ${store.price})">
+                                    <span class="chain-logo">${chainLogos[store.name] || '🏪'}</span>
+                                    <span class="chain-name">${store.name}</span>
+                                    <span class="chain-price ${storeIdx === 0 ? 'best-price' : ''}">
+                                        ₪${store.price.toFixed(2)}
+                                    </span>
+                                    ${storeIdx === 0 ? '<span class="best-badge">הכי זול!</span>' : ''}
+                                    <button class="chain-add-btn">➕</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : `
+                    <div style="padding: 0.5rem 1rem 1rem;">
+                        <button class="add-to-list-btn" onclick="addProductToShoppingList('${product.name.replace(/'/g, "\\'")}', ${product.cheapestPrice})">
+                            ➕ הוסף לרשימת קניות
+                        </button>
+                    </div>
+                `}
+            </div>
+        `;
+    }).join('');
+
+    return `<div class="products-list">${productsHtml}</div>`;
+}
+
+// Build compact view
+function buildCompactView(products) {
+    const productsHtml = products.map((product, idx) => {
+        const hasMultiplePrices = product.stores && product.stores.length > 1;
+        const savings = hasMultiplePrices
+            ? (product.stores[product.stores.length - 1].price - product.stores[0].price).toFixed(2)
+            : 0;
+
+        return `
+            <div class="product-card ${idx === 0 ? 'featured' : ''}">
+                <div class="product-card-header" onclick="toggleProductDetails(this)">
+                    <div class="product-info">
+                        <img src="${product.image}" alt="${product.name}" class="product-image"
+                             onerror="this.style.display='none'">
+                        <div class="product-details">
+                            <span class="product-name">${product.name}</span>
+                            <span class="product-category">${product.category || ''}</span>
+                        </div>
+                    </div>
+                    <div class="product-price-summary">
+                        ${product.cheapestPrice ? `
+                            <span class="cheapest-price">₪${product.cheapestPrice.toFixed(2)}</span>
+                            <span class="cheapest-store">${chainLogos[product.cheapestStore] || '🏪'} ${product.cheapestStore}</span>
+                        ` : '<span class="no-price">אין מחיר</span>'}
+                        ${hasMultiplePrices ? `<span class="expand-icon">▼</span>` : ''}
+                    </div>
+                </div>
+
+                ${hasMultiplePrices ? `
+                    <div class="product-details-expanded" style="display: none;">
+                        <div class="savings-banner">
+                            💰 חסוך עד ₪${savings} בבחירת הרשת הזולה!
+                        </div>
+                        <div class="chain-prices-grid">
+                            ${product.stores.map((store, storeIdx) => `
+                                <div class="chain-price-item ${storeIdx === 0 ? 'cheapest' : ''}" onclick="event.stopPropagation(); addProductFromChain('${product.name.replace(/'/g, "\\'")}', '${store.name}', ${store.price})">
+                                    <span class="chain-logo">${chainLogos[store.name] || '🏪'}</span>
+                                    <span class="chain-name">${store.name}</span>
+                                    <span class="chain-price ${storeIdx === 0 ? 'best-price' : ''}">
+                                        ₪${store.price.toFixed(2)}
+                                    </span>
+                                    ${storeIdx === 0 ? '<span class="best-badge">הכי זול!</span>' : ''}
+                                    <button class="chain-add-btn">➕</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+
+    return `<div class="products-list compact-view">${productsHtml}</div>`;
+}
+
+// Build table view
+function buildTableView(products) {
+    const tableRows = products.map(product => {
+        const savings = product.stores.length > 1
+            ? (product.stores[product.stores.length - 1].price - product.stores[0].price).toFixed(2)
+            : '0';
+
+        const allPrices = product.stores.slice(0, 3).map(s =>
+            `${chainLogos[s.name] || '🏪'}₪${s.price.toFixed(2)}`
+        ).join(' ');
+
+        return `
+            <tr>
+                <td>
+                    <img src="${product.image}" alt="" class="product-img-small" onerror="this.style.display='none'">
+                </td>
+                <td>${product.name}</td>
+                <td>${product.category || '-'}</td>
+                <td class="price-cell">₪${product.cheapestPrice?.toFixed(2) || '-'}</td>
+                <td class="store-cell">
+                    ${chainLogos[product.cheapestStore] || '🏪'} ${product.cheapestStore || '-'}
+                </td>
+                <td class="savings-cell">${savings > 0 ? `₪${savings}` : '-'}</td>
+                <td class="all-prices-cell">${allPrices}</td>
+                <td>
+                    <button class="table-add-btn" onclick="addProductToShoppingList('${product.name.replace(/'/g, "\\'")}', ${product.cheapestPrice})">
+                        ➕
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    return `
+        <table class="products-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>מוצר</th>
+                    <th>קטגוריה</th>
+                    <th>מחיר</th>
+                    <th>רשת</th>
+                    <th>חיסכון</th>
+                    <th>מחירים נוספים</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRows}
+            </tbody>
+        </table>
+    `;
+}
+
+function toggleProductDetails(element) {
+    // Handle both old structure (header click) and new structure (card click)
+    let card = element;
+    if (element.classList.contains('product-card-header')) {
+        card = element.closest('.product-card') || element.closest('.product-card-improved');
+    } else if (!element.classList.contains('product-card') && !element.classList.contains('product-card-improved')) {
+        card = element.closest('.product-card') || element.closest('.product-card-improved');
+    }
+
+    if (!card) return;
+
+    const details = card.querySelector('.product-details-expanded');
+    const icon = card.querySelector('.expand-icon');
+
+    if (details) {
         const isVisible = details.style.display !== 'none';
         details.style.display = isVisible ? 'none' : 'block';
         if (icon) icon.textContent = isVisible ? '▼' : '▲';
@@ -2307,6 +2632,38 @@ async function addProductToShoppingList(productName, price) {
             if (result.success) {
                 shoppingLists[0] = result.list;
                 showToast(`${productName} נוסף לרשימה!`, 'success');
+            }
+        } catch (error) {
+            console.error('Error adding to list:', error);
+            showToast('שגיאה בהוספה לרשימה', 'error');
+        }
+    }
+}
+
+// Add product from specific chain to shopping list
+async function addProductFromChain(productName, chainName, price) {
+    // Find or create a default shopping list
+    if (shoppingLists.length === 0) {
+        await createNewShoppingList();
+    }
+
+    if (shoppingLists.length > 0) {
+        const listId = shoppingLists[0]._id;
+        try {
+            const response = await fetch(`${API_URL}/api/shopping-lists/${listId}/items`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: productName,
+                    quantity: 1,
+                    estimatedPrice: price,
+                    store: chainName
+                })
+            });
+            const result = await response.json();
+            if (result.success) {
+                shoppingLists[0] = result.list;
+                showToast(`${productName} מ${chainName} נוסף לרשימה!`, 'success');
             }
         } catch (error) {
             console.error('Error adding to list:', error);
@@ -2364,4 +2721,10 @@ window.searchPrices = searchPrices;
 window.searchByCategory = searchByCategory;
 window.searchProduct = searchProduct;
 window.addProductToShoppingList = addProductToShoppingList;
+window.addProductFromChain = addProductFromChain;
 window.toggleProductDetails = toggleProductDetails;
+window.applyPriceFilters = applyPriceFilters;
+window.clearPriceFilters = clearPriceFilters;
+window.setSortOption = setSortOption;
+window.setViewOption = setViewOption;
+window.removeChainFilter = removeChainFilter;

@@ -422,6 +422,85 @@
                     <!-- Popular Products in Category -->
                     <div id="categoryProducts" class="category-products" style="display: none;"></div>
 
+                    <!-- Advanced Filters (shown after search) -->
+                    <div id="priceFiltersContainer" class="price-filters-container" style="display: none;">
+                        <div class="filters-header">
+                            <h4>סינון תוצאות</h4>
+                            <button class="clear-filters-btn" onclick="clearPriceFilters()">נקה הכל</button>
+                        </div>
+
+                        <!-- Chain Filter -->
+                        <div class="filter-group">
+                            <label class="filter-label">סנן לפי רשת</label>
+                            <div class="chain-filter-grid" id="chainFilterGrid">
+                                <label class="chain-filter-item">
+                                    <input type="checkbox" value="שופרסל" onchange="applyPriceFilters()">
+                                    <span class="chain-checkbox">🟢 שופרסל</span>
+                                </label>
+                                <label class="chain-filter-item">
+                                    <input type="checkbox" value="רמי לוי" onchange="applyPriceFilters()">
+                                    <span class="chain-checkbox">🔵 רמי לוי</span>
+                                </label>
+                                <label class="chain-filter-item">
+                                    <input type="checkbox" value="ויקטורי" onchange="applyPriceFilters()">
+                                    <span class="chain-checkbox">🟡 ויקטורי</span>
+                                </label>
+                                <label class="chain-filter-item">
+                                    <input type="checkbox" value="אושר עד" onchange="applyPriceFilters()">
+                                    <span class="chain-checkbox">🟠 אושר עד</span>
+                                </label>
+                                <label class="chain-filter-item">
+                                    <input type="checkbox" value="יינות ביתן" onchange="applyPriceFilters()">
+                                    <span class="chain-checkbox">🟣 יינות ביתן</span>
+                                </label>
+                                <label class="chain-filter-item">
+                                    <input type="checkbox" value="מגה" onchange="applyPriceFilters()">
+                                    <span class="chain-checkbox">🔴 מגה</span>
+                                </label>
+                                <label class="chain-filter-item">
+                                    <input type="checkbox" value="חצי חינם" onchange="applyPriceFilters()">
+                                    <span class="chain-checkbox">🟤 חצי חינם</span>
+                                </label>
+                                <label class="chain-filter-item">
+                                    <input type="checkbox" value="טיב טעם" onchange="applyPriceFilters()">
+                                    <span class="chain-checkbox">⚫ טיב טעם</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Sort Options -->
+                        <div class="filter-group">
+                            <label class="filter-label">מיין לפי</label>
+                            <div class="sort-options">
+                                <button class="sort-btn active" data-sort="price-asc" onclick="setSortOption('price-asc')">
+                                    מחיר ⬆️
+                                </button>
+                                <button class="sort-btn" data-sort="price-desc" onclick="setSortOption('price-desc')">
+                                    מחיר ⬇️
+                                </button>
+                                <button class="sort-btn" data-sort="name" onclick="setSortOption('name')">
+                                    שם א-ת
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- View Options -->
+                        <div class="filter-group">
+                            <label class="filter-label">תצוגה</label>
+                            <div class="view-options">
+                                <button class="view-btn active" data-view="cards" onclick="setViewOption('cards')">
+                                    🃏 כרטיסים
+                                </button>
+                                <button class="view-btn" data-view="compact" onclick="setViewOption('compact')">
+                                    📋 קומפקטי
+                                </button>
+                                <button class="view-btn" data-view="table" onclick="setViewOption('table')">
+                                    📊 טבלה
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Search Results -->
                     <div id="priceSearchResults" class="price-search-results"></div>
                 </div>
