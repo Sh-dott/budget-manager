@@ -1,0 +1,2 @@
+# Israeli Supermarket Price Scraping
+il-supermarket-scraper

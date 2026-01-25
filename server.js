@@ -9,6 +9,7 @@ const cron = require('node-cron');
 const zlib = require('zlib');
 const https = require('https');
 const http = require('http');
+const { spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -1213,8 +1214,261 @@ app.get('/api/sync/status', async (req, res) => {
             success: true,
             lastSync: status?.lastSync,
             productCount,
-            results: status?.results
+            results: status?.results,
+            availableChains: [
+                { id: 'shufersal', name: 'שופרסל' },
+                { id: 'rami_levy', name: 'רמי לוי' },
+                { id: 'mega', name: 'מגה' },
+                { id: 'victory', name: 'ויקטורי' },
+                { id: 'yeinot_bitan', name: 'יינות ביתן' },
+                { id: 'tiv_taam', name: 'טיב טעם' },
+                { id: 'osher_ad', name: 'אושר עד' },
+                { id: 'hazi_hinam', name: 'חצי חינם' }
+            ]
         });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ========================================
+// Python Scraper Integration (Real Data)
+// ========================================
+
+// Run Python scraper subprocess
+async function runPythonScraper(chains = ['shufersal', 'rami_levy', 'victory']) {
+    return new Promise((resolve, reject) => {
+        const scriptPath = path.join(__dirname, 'scripts', 'scrape_prices.py');
+
+        console.log(`Starting Python scraper for chains: ${chains.join(', ')}`);
+        console.log(`Script path: ${scriptPath}`);
+
+        // Use 'py' on Windows, 'python' on other platforms
+        const pythonCmd = process.platform === 'win32' ? 'py' : 'python';
+        const python = spawn(pythonCmd, [scriptPath, ...chains], {
+            cwd: __dirname,
+            env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+            shell: true
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        python.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        python.stderr.on('data', (data) => {
+            stderr += data.toString();
+            // Log progress from stderr (scraper logs go there)
+            console.log('[Python]', data.toString().trim());
+        });
+
+        python.on('close', (code) => {
+            console.log(`Python scraper exited with code ${code}`);
+
+            if (code !== 0) {
+                reject(new Error(`Python scraper failed (code ${code}): ${stderr}`));
+                return;
+            }
+
+            try {
+                const result = JSON.parse(stdout);
+                resolve(result);
+            } catch (parseError) {
+                reject(new Error(`Failed to parse Python output: ${parseError.message}\nOutput: ${stdout.substring(0, 500)}`));
+            }
+        });
+
+        python.on('error', (err) => {
+            reject(new Error(`Failed to start Python scraper: ${err.message}`));
+        });
+    });
+}
+
+// Store scraped products in MongoDB
+async function storeScrapedProducts(scraperResult) {
+    const stats = { total: 0, updated: 0, errors: 0 };
+
+    if (!scraperResult.chains) {
+        return stats;
+    }
+
+    for (const [chainId, chainData] of Object.entries(scraperResult.chains)) {
+        if (!chainData.success || !chainData.products) {
+            console.log(`Skipping ${chainId}: ${chainData.error || 'no products'}`);
+            continue;
+        }
+
+        console.log(`Storing ${chainData.products.length} products from ${chainId}...`);
+
+        for (const product of chainData.products) {
+            try {
+                stats.total++;
+
+                const barcode = product.barcode?.toString().padStart(13, '0');
+                if (!barcode || !product.name || !product.price) {
+                    continue;
+                }
+
+                await db.collection('products').updateOne(
+                    { barcode },
+                    {
+                        $set: {
+                            barcode,
+                            itemCode: product.barcode,
+                            name: product.name,
+                            category: mapCategory(product.manufacturer, product.name),
+                            manufacturer: product.manufacturer || '',
+                            lastUpdated: new Date()
+                        },
+                        $push: {
+                            prices: {
+                                $each: [{
+                                    chain: chainId,
+                                    chainName: product.chain_hebrew || chainData.chain_hebrew,
+                                    price: product.price,
+                                    lastUpdated: new Date()
+                                }],
+                                $slice: -10  // Keep last 10 price entries
+                            }
+                        }
+                    },
+                    { upsert: true }
+                );
+
+                stats.updated++;
+            } catch (itemError) {
+                stats.errors++;
+                if (stats.errors < 5) {
+                    console.error(`Error storing product: ${itemError.message}`);
+                }
+            }
+        }
+
+        console.log(`${chainId}: stored ${stats.updated} products`);
+    }
+
+    return stats;
+}
+
+// POST /api/sync/scrape - Trigger Python scraper for all/specified chains
+app.post('/api/sync/scrape', async (req, res) => {
+    try {
+        const chains = req.body.chains || ['shufersal', 'rami_levy', 'victory'];
+
+        console.log('Starting Python scraper sync...');
+        res.json({
+            success: true,
+            message: 'Scrape started',
+            chains,
+            note: 'This may take several minutes. Check /api/sync/status for results.'
+        });
+
+        // Run scraper in background
+        try {
+            const scraperResult = await runPythonScraper(chains);
+            const storeStats = await storeScrapedProducts(scraperResult);
+
+            // Update sync status
+            await db.collection('settings').updateOne(
+                { _id: 'sync-status' },
+                {
+                    $set: {
+                        lastSync: new Date(),
+                        lastScrapeResult: {
+                            success: scraperResult.success,
+                            totalProducts: scraperResult.total_products,
+                            storeStats,
+                            chains: Object.keys(scraperResult.chains || {})
+                        },
+                        type: 'python-scraper'
+                    }
+                },
+                { upsert: true }
+            );
+
+            console.log('Scrape complete:', storeStats);
+        } catch (scrapeError) {
+            console.error('Background scrape failed:', scrapeError.message);
+            await db.collection('settings').updateOne(
+                { _id: 'sync-status' },
+                {
+                    $set: {
+                        lastScrapeError: scrapeError.message,
+                        lastScrapeErrorTime: new Date()
+                    }
+                },
+                { upsert: true }
+            );
+        }
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/sync/scrape/:chain - Scrape specific chain
+app.post('/api/sync/scrape/:chain', async (req, res) => {
+    try {
+        const chain = req.params.chain;
+        const validChains = ['shufersal', 'rami_levy', 'mega', 'victory', 'yeinot_bitan', 'tiv_taam', 'osher_ad', 'hazi_hinam'];
+
+        if (!validChains.includes(chain)) {
+            return res.status(400).json({
+                success: false,
+                error: `Invalid chain. Valid chains: ${validChains.join(', ')}`
+            });
+        }
+
+        console.log(`Starting Python scraper for ${chain}...`);
+
+        const scraperResult = await runPythonScraper([chain]);
+        const storeStats = await storeScrapedProducts(scraperResult);
+
+        // Update sync status
+        await db.collection('settings').updateOne(
+            { _id: 'sync-status' },
+            {
+                $set: {
+                    lastSync: new Date(),
+                    [`chainResults.${chain}`]: {
+                        success: scraperResult.chains?.[chain]?.success || false,
+                        productsCount: scraperResult.chains?.[chain]?.products_count || 0,
+                        scrapedAt: new Date()
+                    }
+                }
+            },
+            { upsert: true }
+        );
+
+        res.json({
+            success: true,
+            message: `${chain} scrape complete`,
+            chain,
+            stats: storeStats,
+            productsScraped: scraperResult.chains?.[chain]?.products_count || 0
+        });
+    } catch (error) {
+        console.error(`Scrape error for ${req.params.chain}:`, error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/sync/scrape/list - List available chains
+app.get('/api/sync/scrape/list', async (req, res) => {
+    try {
+        const chains = [
+            { id: 'shufersal', name: 'שופרסל', status: 'available' },
+            { id: 'rami_levy', name: 'רמי לוי', status: 'available' },
+            { id: 'mega', name: 'מגה', status: 'available' },
+            { id: 'victory', name: 'ויקטורי', status: 'available' },
+            { id: 'yeinot_bitan', name: 'יינות ביתן', status: 'available' },
+            { id: 'tiv_taam', name: 'טיב טעם', status: 'available' },
+            { id: 'osher_ad', name: 'אושר עד', status: 'available' },
+            { id: 'hazi_hinam', name: 'חצי חינם', status: 'available' }
+        ];
+
+        res.json({ success: true, chains });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -1467,18 +1721,51 @@ cron.schedule('0 2 * * *', async () => {
     console.log('Starting scheduled price sync at', new Date().toISOString());
 
     try {
-        const results = {
-            shufersal: await fetchShufersalPrices(),
-            ramiLevy: await fetchRamiLevyPrices()
-        };
+        // Try Python scraper first (real data)
+        let usedPythonScraper = false;
+        try {
+            console.log('Attempting Python scraper for real data...');
+            const scraperResult = await runPythonScraper(['shufersal', 'rami_levy', 'victory']);
+            const storeStats = await storeScrapedProducts(scraperResult);
 
-        await db.collection('settings').updateOne(
-            { _id: 'sync-status' },
-            { $set: { lastSync: new Date(), results, type: 'scheduled' } },
-            { upsert: true }
-        );
+            if (storeStats.updated > 0) {
+                usedPythonScraper = true;
+                await db.collection('settings').updateOne(
+                    { _id: 'sync-status' },
+                    {
+                        $set: {
+                            lastSync: new Date(),
+                            lastScrapeResult: {
+                                success: true,
+                                totalProducts: scraperResult.total_products,
+                                storeStats
+                            },
+                            type: 'scheduled-python'
+                        }
+                    },
+                    { upsert: true }
+                );
+                console.log('Scheduled Python scrape complete:', storeStats);
+            }
+        } catch (pythonError) {
+            console.log('Python scraper failed, using fallback:', pythonError.message);
+        }
 
-        console.log('Scheduled sync complete:', results);
+        // Fallback to sample data if Python scraper failed
+        if (!usedPythonScraper) {
+            const results = {
+                shufersal: await fetchShufersalPrices(),
+                ramiLevy: await fetchRamiLevyPrices()
+            };
+
+            await db.collection('settings').updateOne(
+                { _id: 'sync-status' },
+                { $set: { lastSync: new Date(), results, type: 'scheduled-fallback' } },
+                { upsert: true }
+            );
+
+            console.log('Scheduled sync complete (fallback):', results);
+        }
     } catch (error) {
         console.error('Scheduled sync failed:', error);
     }
