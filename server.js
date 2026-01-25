@@ -1236,31 +1236,32 @@ app.get('/api/sync/status', async (req, res) => {
 // ========================================
 
 // Run Python scraper subprocess
+const fs = require('fs');
+const os = require('os');
+
 async function runPythonScraper(chains = ['shufersal', 'rami_levy', 'victory']) {
     return new Promise((resolve, reject) => {
         const scriptPath = path.join(__dirname, 'scripts', 'scrape_prices.py');
+        const outputFile = path.join(os.tmpdir(), `scraper_output_${Date.now()}.json`);
 
         console.log(`Starting Python scraper for chains: ${chains.join(', ')}`);
-        console.log(`Script path: ${scriptPath}`);
+        console.log(`Output file: ${outputFile}`);
 
         // Use 'py' on Windows, 'python' on other platforms
         const pythonCmd = process.platform === 'win32' ? 'py' : 'python';
-        const python = spawn(pythonCmd, [scriptPath, ...chains], {
+        const python = spawn(pythonCmd, [scriptPath, ...chains, '--output', outputFile], {
             cwd: __dirname,
             env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
             shell: true
         });
 
-        let stdout = '';
-        let stderr = '';
-
         python.stdout.on('data', (data) => {
-            stdout += data.toString();
+            // Stdout now just contains the output file path (or library noise)
+            console.log('[Python stdout]', data.toString().trim());
         });
 
         python.stderr.on('data', (data) => {
-            stderr += data.toString();
-            // Log progress from stderr (scraper logs go there)
+            // Log progress from stderr
             console.log('[Python]', data.toString().trim());
         });
 
@@ -1268,15 +1269,25 @@ async function runPythonScraper(chains = ['shufersal', 'rami_levy', 'victory']) 
             console.log(`Python scraper exited with code ${code}`);
 
             if (code !== 0) {
-                reject(new Error(`Python scraper failed (code ${code}): ${stderr}`));
+                reject(new Error(`Python scraper failed with code ${code}`));
                 return;
             }
 
+            // Read result from temp file
             try {
-                const result = JSON.parse(stdout);
+                if (!fs.existsSync(outputFile)) {
+                    reject(new Error('Output file not created'));
+                    return;
+                }
+                const jsonContent = fs.readFileSync(outputFile, 'utf-8');
+                const result = JSON.parse(jsonContent);
+
+                // Clean up temp file
+                fs.unlinkSync(outputFile);
+
                 resolve(result);
             } catch (parseError) {
-                reject(new Error(`Failed to parse Python output: ${parseError.message}\nOutput: ${stdout.substring(0, 500)}`));
+                reject(new Error(`Failed to read output file: ${parseError.message}`));
             }
         });
 

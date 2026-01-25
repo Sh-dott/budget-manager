@@ -308,44 +308,62 @@ def scrape_multiple_chains(chains: List[str] = None, limit: int = 5000) -> Dict[
 
 def main():
     """Main entry point for command line usage."""
-    if len(sys.argv) > 1:
-        if sys.argv[1] == '--list':
-            # List available chains
-            available = get_available_chains()
-            output = {
-                'available_chains': available,
-                'chain_names': CHAIN_NAMES
-            }
-            print(json.dumps(output, ensure_ascii=False, indent=2))
-            return
+    output_file = None
 
-        if sys.argv[1] == '--help':
-            print("""
+    # Check for --output flag
+    args = sys.argv[1:]
+    if '--output' in args:
+        idx = args.index('--output')
+        if idx + 1 < len(args):
+            output_file = args[idx + 1]
+            args = args[:idx] + args[idx+2:]
+
+    if args and args[0] == '--list':
+        # List available chains
+        available = get_available_chains()
+        output = {
+            'available_chains': available,
+            'chain_names': CHAIN_NAMES
+        }
+        write_output(output, output_file)
+        return
+
+    if args and args[0] == '--help':
+        print("""
 Israeli Supermarket Price Scraper
 
 Usage:
-  python scrape_prices.py [chain1] [chain2] ...   Scrape specified chains
+  python scrape_prices.py [chain1] [chain2] ... [--output file.json]
   python scrape_prices.py --list                   List available chains
   python scrape_prices.py --help                   Show this help
 
 Examples:
   python scrape_prices.py shufersal               Scrape only Shufersal
-  python scrape_prices.py shufersal rami_levy     Scrape Shufersal and Rami Levy
-  python scrape_prices.py                         Scrape default chains (shufersal, rami_levy, mega)
+  python scrape_prices.py shufersal --output /tmp/result.json
+  python scrape_prices.py                         Scrape default chains
 
 Note: First run may take several minutes to download price files.
 Some chains may require Israeli IP address.
-""")
-            return
+""", file=sys.stderr)
+        return
 
-        # Scrape specified chains
-        chains = sys.argv[1:]
-    else:
-        # Default chains
-        chains = None
-
+    # Scrape specified chains
+    chains = args if args else None
     results = scrape_multiple_chains(chains)
-    print(json.dumps(results, ensure_ascii=False))
+    write_output(results, output_file)
+
+
+def write_output(data: Dict[str, Any], output_file: str = None):
+    """Write output to file or stdout."""
+    json_str = json.dumps(data, ensure_ascii=False)
+
+    if output_file:
+        # Write to file and print just the path
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(json_str)
+        print(output_file)  # Only this goes to stdout
+    else:
+        print(json_str)
 
 
 if __name__ == '__main__':
