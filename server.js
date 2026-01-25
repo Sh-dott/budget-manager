@@ -1834,16 +1834,16 @@ app.get('/api/prices/search', async (req, res) => {
         // Search in products collection (real data)
         let products = [];
 
-        // First try text search
-        try {
+        // Use regex search first (better for Hebrew)
+        products = await db.collection('products')
+            .find({ name: { $regex: query, $options: 'i' } })
+            .limit(10)
+            .toArray();
+
+        // If no results, also search by category
+        if (products.length === 0) {
             products = await db.collection('products')
-                .find({ $text: { $search: query } })
-                .limit(10)
-                .toArray();
-        } catch (textError) {
-            // Fallback to regex search if text search fails
-            products = await db.collection('products')
-                .find({ name: { $regex: query, $options: 'i' } })
+                .find({ category: { $regex: query, $options: 'i' } })
                 .limit(10)
                 .toArray();
         }
@@ -2005,6 +2005,52 @@ app.get('/api/prices/search', async (req, res) => {
     } catch (error) {
         console.error('Error searching prices:', error);
         res.status(500).json({ success: false, error: 'Failed to search prices' });
+    }
+});
+
+// ========================================
+// Products List Endpoint
+// ========================================
+app.get('/api/products', async (req, res) => {
+    try {
+        const { category, limit = 50, search } = req.query;
+        let query = {};
+
+        if (category) {
+            query.category = category;
+        }
+
+        if (search) {
+            // Use regex for Hebrew search (more reliable than text search)
+            query.name = { $regex: search, $options: 'i' };
+        }
+
+        const products = await db.collection('products')
+            .find(query)
+            .limit(parseInt(limit))
+            .toArray();
+
+        // Get unique categories
+        const categories = await db.collection('products').distinct('category');
+
+        res.json({
+            success: true,
+            count: products.length,
+            categories,
+            products: products.map(p => ({
+                barcode: p.barcode,
+                name: p.name,
+                category: p.category,
+                manufacturer: p.manufacturer,
+                image: p.image,
+                prices: p.prices,
+                cheapestPrice: p.prices?.reduce((min, pr) => pr.price < min ? pr.price : min, Infinity),
+                cheapestChain: p.prices?.reduce((cheapest, pr) => pr.price < (cheapest?.price || Infinity) ? pr : cheapest, null)?.chainName
+            }))
+        });
+    } catch (error) {
+        console.error('Products list error:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
