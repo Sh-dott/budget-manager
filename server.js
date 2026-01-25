@@ -1363,6 +1363,29 @@ async function storeScrapedProducts(scraperResult) {
     return stats;
 }
 
+// POST /api/sync/seed - Seed database with real Israeli products
+app.post('/api/sync/seed', async (req, res) => {
+    try {
+        const { seedDatabase } = require('./scripts/seed_products');
+        console.log('Starting database seed...');
+
+        // Run seed
+        await seedDatabase();
+
+        const productCount = await db.collection('products').countDocuments();
+
+        res.json({
+            success: true,
+            message: 'Database seeded successfully',
+            productCount,
+            note: 'Real Israeli products with prices from Rami Levy, Shufersal, and Victory'
+        });
+    } catch (error) {
+        console.error('Seed error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // POST /api/sync/scrape - Trigger Python scraper for all/specified chains
 app.post('/api/sync/scrape', async (req, res) => {
     try {
