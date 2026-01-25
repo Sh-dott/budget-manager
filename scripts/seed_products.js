@@ -47,6 +47,175 @@ const PRODUCTS = [
             { chain: 'victory', chainName: 'ויקטורי', price: 8.20 }
         ]
     },
+    // More milk varieties
+    {
+        barcode: '7290000000039',
+        name: 'חלב תנובה 0.5% דל שומן 1 ליטר',
+        category: 'מוצרי חלב',
+        manufacturer: 'תנובה',
+        image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 6.30 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 6.70 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 6.50 }
+        ]
+    },
+    {
+        barcode: '7290000000046',
+        name: 'חלב שוקו תנובה 1 ליטר',
+        category: 'מוצרי חלב',
+        manufacturer: 'תנובה',
+        image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 8.90 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 9.50 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 9.20 }
+        ]
+    },
+    {
+        barcode: '7290000000053',
+        name: 'חלב שוקו תנובה 500 מ"ל',
+        category: 'מוצרי חלב',
+        manufacturer: 'תנובה',
+        image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 5.50 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 5.90 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 5.70 }
+        ]
+    },
+    {
+        barcode: '7290000000060',
+        name: 'משקה סויה אלפרו וניל 1 ליטר',
+        category: 'מוצרי חלב',
+        manufacturer: 'אלפרו',
+        image: 'https://images.unsplash.com/photo-1556881286-fc6915169721?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 14.90 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 16.90 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 15.90 }
+        ]
+    },
+    {
+        barcode: '7290000000077',
+        name: 'משקה סויה אלפרו טבעי 1 ליטר',
+        category: 'מוצרי חלב',
+        manufacturer: 'אלפרו',
+        image: 'https://images.unsplash.com/photo-1556881286-fc6915169721?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 13.90 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 15.90 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 14.90 }
+        ]
+    },
+    {
+        barcode: '7290000000084',
+        name: 'משקה שקדים אלפרו 1 ליטר',
+        category: 'מוצרי חלב',
+        manufacturer: 'אלפרו',
+        image: 'https://images.unsplash.com/photo-1600788907416-456578634209?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 15.90 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 17.90 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 16.90 }
+        ]
+    },
+    {
+        barcode: '7290000000091',
+        name: 'משקה שיבולת שועל אלפרו 1 ליטר',
+        category: 'מוצרי חלב',
+        manufacturer: 'אלפרו',
+        image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 16.90 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 18.90 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 17.90 }
+        ]
+    },
+    {
+        barcode: '7290000000107',
+        name: 'חלב עיזים יעלון 1 ליטר',
+        category: 'מוצרי חלב',
+        manufacturer: 'יעלון',
+        image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 18.90 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 21.90 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 19.90 }
+        ]
+    },
+    {
+        barcode: '7290000000114',
+        name: 'חלב ללא לקטוז תנובה 3% 1 ליטר',
+        category: 'מוצרי חלב',
+        manufacturer: 'תנובה',
+        image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 9.90 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 10.90 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 10.50 }
+        ]
+    },
+    {
+        barcode: '7290000000121',
+        name: 'חלב בננה שטראוס 500 מ"ל',
+        category: 'מוצרי חלב',
+        manufacturer: 'שטראוס',
+        image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 6.90 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 7.50 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 7.20 }
+        ]
+    },
+    {
+        barcode: '7290000000138',
+        name: 'חלב תות שטראוס 500 מ"ל',
+        category: 'מוצרי חלב',
+        manufacturer: 'שטראוס',
+        image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 6.90 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 7.50 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 7.20 }
+        ]
+    },
+    {
+        barcode: '7290000000145',
+        name: 'חלב וניל שטראוס 500 מ"ל',
+        category: 'מוצרי חלב',
+        manufacturer: 'שטראוס',
+        image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 6.90 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 7.50 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 7.20 }
+        ]
+    },
+    {
+        barcode: '7290000000152',
+        name: 'חלב מועשר בסידן תנובה 1 ליטר',
+        category: 'מוצרי חלב',
+        manufacturer: 'תנובה',
+        image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 7.90 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 8.50 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 8.20 }
+        ]
+    },
+    {
+        barcode: '7290000000169',
+        name: 'חלב אורגני תנובה 3% 1 ליטר',
+        category: 'מוצרי חלב',
+        manufacturer: 'תנובה',
+        image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400',
+        prices: [
+            { chain: 'rami_levy', chainName: 'רמי לוי', price: 11.90 },
+            { chain: 'shufersal', chainName: 'שופרסל', price: 12.90 },
+            { chain: 'victory', chainName: 'ויקטורי', price: 12.50 }
+        ]
+    },
     {
         barcode: '7290000066004',
         name: 'גבינה לבנה תנובה 5% 250 גרם',

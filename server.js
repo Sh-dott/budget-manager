@@ -1851,70 +1851,74 @@ app.get('/api/prices/search', async (req, res) => {
         let results;
 
         if (products.length > 0) {
-            // Use real data from database
-            const product = products[0];
+            // Return ALL matching products with their prices
+            const allProducts = [];
 
-            // Get latest prices from each chain
-            const stores = [];
-            const chainPrices = {};
-
-            if (product.prices && product.prices.length > 0) {
-                // Get most recent price for each chain
-                for (const p of product.prices) {
-                    if (!chainPrices[p.chain] || new Date(p.lastUpdated) > new Date(chainPrices[p.chain].lastUpdated)) {
-                        chainPrices[p.chain] = p;
+            for (const product of products) {
+                // Get prices for each chain
+                const stores = [];
+                if (product.prices && product.prices.length > 0) {
+                    for (const p of product.prices) {
+                        stores.push({
+                            name: p.chainName,
+                            chain: p.chain,
+                            price: p.price
+                        });
                     }
+                    stores.sort((a, b) => a.price - b.price);
                 }
 
-                for (const [chain, priceData] of Object.entries(chainPrices)) {
-                    stores.push({
-                        name: priceData.chainName,
-                        price: priceData.price,
-                        note: ''
+                // Get image
+                let imageUrl = product.image;
+                if (!imageUrl) {
+                    const categoryImages = {
+                        'מוצרי חלב': 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=200',
+                        'לחם ומאפים': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200',
+                        'בשר ועוף': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200',
+                        'משקאות': 'https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=200',
+                        'חטיפים': 'https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=200',
+                        'פירות וירקות': 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=200'
+                    };
+                    imageUrl = categoryImages[product.category] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200';
+                }
+
+                allProducts.push({
+                    name: product.name,
+                    barcode: product.barcode,
+                    category: product.category,
+                    manufacturer: product.manufacturer,
+                    image: imageUrl,
+                    stores,
+                    cheapestPrice: stores.length > 0 ? stores[0].price : null,
+                    cheapestStore: stores.length > 0 ? stores[0].name : null
+                });
+            }
+
+            // Sort all products by cheapest price
+            allProducts.sort((a, b) => (a.cheapestPrice || 999) - (b.cheapestPrice || 999));
+
+            // Group by store for comparison view
+            const byStore = {};
+            for (const product of allProducts) {
+                for (const store of product.stores) {
+                    if (!byStore[store.name]) {
+                        byStore[store.name] = { store: store.name, products: [], totalPrice: 0 };
+                    }
+                    byStore[store.name].products.push({
+                        name: product.name,
+                        price: store.price
                     });
+                    byStore[store.name].totalPrice += store.price;
                 }
-            }
-
-            // Sort by price
-            stores.sort((a, b) => a.price - b.price);
-
-            // Try to get product image from OpenFoodFacts
-            let imageUrl = product.image;
-            if (!imageUrl && product.barcode) {
-                imageUrl = await getProductImage(product.barcode);
-                // Cache the image URL
-                if (imageUrl) {
-                    await db.collection('products').updateOne(
-                        { _id: product._id },
-                        { $set: { image: imageUrl } }
-                    );
-                }
-            }
-
-            // Fallback image if none found
-            if (!imageUrl) {
-                const categoryImages = {
-                    'מוצרי חלב': 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=200',
-                    'לחם ומאפים': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200',
-                    'בשר ודגים': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200',
-                    'שתייה': 'https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=200',
-                    'חטיפים': 'https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=200',
-                    'פירות וירקות': 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=200',
-                    'מזון כללי': 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200'
-                };
-                imageUrl = categoryImages[product.category] || categoryImages['מזון כללי'];
             }
 
             results = {
                 query,
-                product: product.name,
-                category: product.category,
-                barcode: product.barcode,
-                manufacturer: product.manufacturer,
-                image: imageUrl,
-                stores,
-                cheapest: stores.length > 0 ? stores[0].name : null,
-                disclaimer: `עודכן: ${product.lastUpdated ? new Date(product.lastUpdated).toLocaleDateString('he-IL') : 'לא ידוע'}`,
+                totalFound: products.length,
+                products: allProducts,
+                byStore: Object.values(byStore).sort((a, b) => a.totalPrice - b.totalPrice),
+                cheapestOverall: allProducts[0]?.cheapestStore,
+                disclaimer: `עודכן: ${new Date().toLocaleDateString('he-IL')}`,
                 dataSource: 'real'
             };
         } else {
