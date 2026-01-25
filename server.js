@@ -1407,59 +1407,9 @@ app.post('/api/sync/kaggle', async (req, res) => {
             });
         }
 
-        // Create temp file for output
-        const os = require('os');
-        const outputFile = path.join(os.tmpdir(), `kaggle_import_${Date.now()}.json`);
-
-        // Build Python command args
-        const args = [
-            path.join(__dirname, 'scripts/import_kaggle.py'),
-            '--output', outputFile,
-            '--limit', String(limit)
-        ];
-        if (chains && chains.length > 0) {
-            args.push('--chains', ...chains);
-        }
-
-        // Determine Python command
-        const pythonCmd = process.platform === 'win32' ? 'py' : 'python3';
-
-        // Run Python importer
-        const result = await new Promise((resolve, reject) => {
-            const python = spawn(pythonCmd, args, {
-                env: {
-                    ...process.env,
-                    PYTHONIOENCODING: 'utf-8'
-                }
-            });
-
-            let stderr = '';
-            python.stderr.on('data', (data) => {
-                stderr += data.toString();
-                console.log('[Kaggle]', data.toString().trim());
-            });
-
-            python.on('close', async (code) => {
-                if (code === 0) {
-                    try {
-                        const fs = require('fs');
-                        const jsonData = fs.readFileSync(outputFile, 'utf-8');
-                        const result = JSON.parse(jsonData);
-                        // Clean up temp file
-                        try { fs.unlinkSync(outputFile); } catch (e) {}
-                        resolve(result);
-                    } catch (parseError) {
-                        reject(new Error(`Failed to parse Kaggle output: ${parseError.message}`));
-                    }
-                } else {
-                    reject(new Error(`Kaggle import failed (code ${code}): ${stderr}`));
-                }
-            });
-
-            python.on('error', (err) => {
-                reject(new Error(`Failed to start Python: ${err.message}`));
-            });
-        });
+        // Use Node.js Kaggle importer (no Python required)
+        const { importFromKaggle } = require('./scripts/import_kaggle_node');
+        const result = await importFromKaggle({ limit, chains });
 
         if (!result.success) {
             return res.status(500).json(result);
