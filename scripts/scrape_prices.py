@@ -148,8 +148,10 @@ def scrape_chain(chain_name: str, output_dir: str = None, limit: int = 5000) -> 
         }
 
     # Use temp directory if not specified
+    created_tmp = False
     if output_dir is None:
         output_dir = tempfile.mkdtemp(prefix=f'supermarket_{chain_name}_')
+        created_tmp = True
 
     logger.info(f"Starting scrape for chain: {chain_name} ({enum_name})")
     logger.info(f"Output directory: {output_dir}")
@@ -193,6 +195,15 @@ def scrape_chain(chain_name: str, output_dir: str = None, limit: int = 5000) -> 
             'error': str(e),
             'products': []
         }
+    finally:
+        # Clean up temp directory to avoid filling /tmp
+        if created_tmp and os.path.exists(output_dir):
+            import shutil
+            try:
+                shutil.rmtree(output_dir)
+                logger.info(f"Cleaned up temp directory: {output_dir}")
+            except Exception as e:
+                logger.warning(f"Failed to clean up {output_dir}: {e}")
 
 
 def parse_scraped_files(output_dir: str, chain_name: str, limit: int = 5000) -> List[Dict[str, Any]]:

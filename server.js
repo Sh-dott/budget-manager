@@ -2102,9 +2102,35 @@ app.get('/api/products/barcode/:barcode', async (req, res) => {
 // ========================================
 // Background Sync Cron Job
 // ========================================
+// Clean up stale scraper temp directories to prevent /tmp from filling up
+function cleanupScraperTmpDirs() {
+    try {
+        const tmpDir = os.tmpdir();
+        const entries = fs.readdirSync(tmpDir);
+        let cleaned = 0;
+        for (const entry of entries) {
+            if (entry.startsWith('supermarket_') || entry.startsWith('supermarket_prices_')) {
+                const fullPath = path.join(tmpDir, entry);
+                try {
+                    fs.rmSync(fullPath, { recursive: true, force: true });
+                    cleaned++;
+                } catch (e) { /* skip entries we can't remove */ }
+            }
+        }
+        if (cleaned > 0) {
+            console.log(`Cleaned up ${cleaned} stale scraper temp directories from ${tmpDir}`);
+        }
+    } catch (e) {
+        console.warn('Temp directory cleanup warning:', e.message);
+    }
+}
+
 // Schedule sync at 2 AM daily
 cron.schedule('0 2 * * *', async () => {
     console.log('Starting scheduled price sync at', new Date().toISOString());
+
+    // Clean up leftover temp files from previous runs before starting
+    cleanupScraperTmpDirs();
 
     try {
         // Try Python scraper first (real data)
