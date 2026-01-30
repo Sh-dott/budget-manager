@@ -11,7 +11,7 @@ const https = require('https');
 const http = require('http');
 const { spawn } = require('child_process');
 const { CHAINS, fetchChain, fetchAllChains } = require('./scripts/chain_fetcher');
-const { resolveImagesForProducts, validateAndRefreshImages, CATEGORY_FALLBACK_IMAGES, resolveProductImage } = require('./scripts/image_resolver');
+const { resolveImagesForProducts, validateAndRefreshImages, CATEGORY_FALLBACK_IMAGES, resolveProductImage, getCategoryFallback } = require('./scripts/image_resolver');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -1974,7 +1974,7 @@ app.get('/api/prices/search', async (req, res) => {
                 // Get image
                 let imageUrl = product.image;
                 if (!imageUrl) {
-                    imageUrl = CATEGORY_FALLBACK_IMAGES[product.category] || CATEGORY_FALLBACK_IMAGES['\u05DB\u05DC\u05DC\u05D9'] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200';
+                    imageUrl = getCategoryFallback(product.category, product.name);
                 }
 
                 allProducts.push({

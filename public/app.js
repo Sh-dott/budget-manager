@@ -2163,7 +2163,102 @@ const chainLogos = {
     'יוחננוף': '🟩'
 };
 
-// Category fallback images for broken/missing product images
+// Product-specific keyword images (first match wins, specific before general)
+const PRODUCT_KEYWORD_IMAGES = [
+    // Dairy
+    { kw: ['קוטג'], img: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=200' },
+    { kw: ['גבינה צהובה'], img: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200' },
+    { kw: ['גבינה לבנה', 'גבינה שמנת'], img: 'https://images.unsplash.com/photo-1559561853-08451507cbe7?w=200' },
+    { kw: ['גבינה'], img: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200' },
+    { kw: ['יוגורט', 'מעדן', 'לבן'], img: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=200' },
+    { kw: ['שמנת'], img: 'https://images.unsplash.com/photo-1559561853-08451507cbe7?w=200' },
+    { kw: ['חמאה'], img: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=200' },
+    { kw: ['שוקו'], img: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=200' },
+    { kw: ['חלב'], img: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=200' },
+    // Bread
+    { kw: ['פיתה'], img: 'https://images.unsplash.com/photo-1586075574812-eeea2a490979?w=200' },
+    { kw: ['חלה'], img: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200' },
+    { kw: ['לחמניה', 'לחמניות'], img: 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=200' },
+    { kw: ['באגט'], img: 'https://images.unsplash.com/photo-1585535936540-c5f4cce4d42a?w=200' },
+    { kw: ['עוגה', 'עוגת'], img: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=200' },
+    { kw: ['עוגיות', 'עוגיה'], img: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=200' },
+    { kw: ['לחם'], img: 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=200' },
+    // Eggs
+    { kw: ['ביצים', 'ביצה'], img: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200' },
+    // Meat
+    { kw: ['שניצל'], img: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=200' },
+    { kw: ['המבורגר'], img: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200' },
+    { kw: ['נקניק', 'נקניקיות'], img: 'https://images.unsplash.com/photo-1558030006-450675393462?w=200' },
+    { kw: ['כרעיים'], img: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=200' },
+    { kw: ['חזה עוף', 'חזה'], img: 'https://images.unsplash.com/photo-1604503468506-a8da13d82571?w=200' },
+    { kw: ['עוף'], img: 'https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=200' },
+    { kw: ['בקר'], img: 'https://images.unsplash.com/photo-1588347818036-558601350947?w=200' },
+    { kw: ['בשר'], img: 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200' },
+    // Fish
+    { kw: ['סלמון'], img: 'https://images.unsplash.com/photo-1574781330855-d0db8cc6a79c?w=200' },
+    { kw: ['טונה'], img: 'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=200' },
+    { kw: ['דג'], img: 'https://images.unsplash.com/photo-1534604973900-c43ab4c2e0ab?w=200' },
+    // Fruits & vegetables
+    { kw: ['תפוח אדמה'], img: 'https://images.unsplash.com/photo-1568702846914-96b305d2ead1?w=200' },
+    { kw: ['תפוחים', 'תפוח'], img: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=200' },
+    { kw: ['בננה'], img: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=200' },
+    { kw: ['תפוז', 'תפוזים'], img: 'https://images.unsplash.com/photo-1547514701-42dfc6400d1d?w=200' },
+    { kw: ['לימון'], img: 'https://images.unsplash.com/photo-1590502593747-42a996133562?w=200' },
+    { kw: ['אבוקדו'], img: 'https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=200' },
+    { kw: ['עגבני'], img: 'https://images.unsplash.com/photo-1546470427-e26264be0b0b?w=200' },
+    { kw: ['מלפפון'], img: 'https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=200' },
+    { kw: ['גזר'], img: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=200' },
+    { kw: ['בצל'], img: 'https://images.unsplash.com/photo-1518977956812-cd3dbadaaf31?w=200' },
+    // Drinks
+    { kw: ['קולה'], img: 'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=200' },
+    { kw: ['ספרייט'], img: 'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=200' },
+    { kw: ['מיץ תפוזים'], img: 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=200' },
+    { kw: ['מיץ'], img: 'https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=200' },
+    { kw: ['בירה'], img: 'https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=200' },
+    { kw: ['יין'], img: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=200' },
+    { kw: ['מים מינרליים', 'מים מעיין', 'נביעות'], img: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=200' },
+    { kw: ['סודה'], img: 'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=200' },
+    // Snacks
+    { kw: ['במבה'], img: 'https://images.unsplash.com/photo-1621447504864-d8686e12698c?w=200' },
+    { kw: ['ביסלי'], img: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=200' },
+    { kw: ['שוקולד'], img: 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=200' },
+    { kw: ['וופל'], img: 'https://images.unsplash.com/photo-1568051243851-f9b136146e97?w=200' },
+    { kw: ['סוכריה', 'סוכריות'], img: 'https://images.unsplash.com/photo-1581798459219-318e76afafb0?w=200' },
+    { kw: ['גלידה'], img: 'https://images.unsplash.com/photo-1497034825429-c343d7c6a68f?w=200' },
+    { kw: ['חטיף', 'ציפס'], img: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=200' },
+    // Pasta & rice
+    { kw: ['ספגטי'], img: 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=200' },
+    { kw: ['פסטה'], img: 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=200' },
+    { kw: ['אורז'], img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200' },
+    { kw: ['קוסקוס'], img: 'https://images.unsplash.com/photo-1585543805890-6051f7829f98?w=200' },
+    // Pantry
+    { kw: ['רסק עגבניות'], img: 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?w=200' },
+    { kw: ['חומוס'], img: 'https://images.unsplash.com/photo-1585513553105-31e70ffa0b02?w=200' },
+    { kw: ['טחינה'], img: 'https://images.unsplash.com/photo-1590779033100-9f60a05a013d?w=200' },
+    { kw: ['שמן זית'], img: 'https://images.unsplash.com/photo-1474979266404-7eabd7875faf?w=200' },
+    { kw: ['שמן קנולה', 'שמן'], img: 'https://images.unsplash.com/photo-1474979266404-7eabd7875faf?w=200' },
+    { kw: ['תירס'], img: 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=200' },
+    // Coffee & tea
+    { kw: ['קפסולות', 'קפסולה', 'אספרסו'], img: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefda?w=200' },
+    { kw: ['קפה נמס', 'נס קפה'], img: 'https://images.unsplash.com/photo-1559496417-e7f25cb247f3?w=200' },
+    { kw: ['קפה'], img: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=200' },
+    { kw: ['תה'], img: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=200' },
+    // Cleaning
+    { kw: ['שמפו'], img: 'https://images.unsplash.com/photo-1585751119414-ef2636f8aede?w=200' },
+    { kw: ['סבון'], img: 'https://images.unsplash.com/photo-1600857544200-b2f666a9a2ec?w=200' },
+    { kw: ['אבקת כביסה', 'אבקה'], img: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?w=200' },
+    { kw: ['נוזל כלים'], img: 'https://images.unsplash.com/photo-1585421514738-01798e348b17?w=200' },
+    { kw: ['נייר טואלט'], img: 'https://images.unsplash.com/photo-1584556812952-905ffd0c611a?w=200' },
+    // Baby
+    { kw: ['חיתולים'], img: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=200' },
+    // Other
+    { kw: ['קורנפלקס', 'דגני בוקר'], img: 'https://images.unsplash.com/photo-1521483451569-e33803c0330c?w=200' },
+    { kw: ['סוכר'], img: 'https://images.unsplash.com/photo-1581268559468-79decf4956b4?w=200' },
+    { kw: ['קמח'], img: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200' },
+    { kw: ['מלח'], img: 'https://images.unsplash.com/photo-1518110925495-5fe2fda0442c?w=200' },
+];
+
+// Category fallback images (generic, last resort)
 const CATEGORY_FALLBACK_IMAGES = {
     'מוצרי חלב': 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=200',
     'לחם ומאפים': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200',
@@ -2186,7 +2281,16 @@ const CATEGORY_FALLBACK_IMAGES = {
     'אחר': 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200',
 };
 
-function getCategoryFallbackImage(category) {
+// Try product-specific keyword match first, then fall back to category
+function getCategoryFallbackImage(category, productName) {
+    if (productName) {
+        const lower = productName.toLowerCase();
+        for (const entry of PRODUCT_KEYWORD_IMAGES) {
+            for (const kw of entry.kw) {
+                if (lower.includes(kw)) return entry.img;
+            }
+        }
+    }
     return CATEGORY_FALLBACK_IMAGES[category] || CATEGORY_FALLBACK_IMAGES['כללי'];
 }
 
@@ -2235,7 +2339,7 @@ async function searchPrices() {
                             <div class="product-card-header">
                                 <div class="product-info">
                                     <img src="${data.image}" alt="${data.product}" class="product-image"
-                                         onerror="this.src=getCategoryFallbackImage('${(data.category || '').replace(/'/g, "\\'")}'); this.onerror=null;">
+                                         onerror="this.src=getCategoryFallbackImage('${(data.category || '').replace(/'/g, "\\'")}', '${(data.product || '').replace(/'/g, "\\'")}'); this.onerror=null;">
                                     <div class="product-details">
                                         <span class="product-name">${data.product || query}</span>
                                         ${data.category ? `<span class="product-category">${data.category}</span>` : ''}
@@ -2489,7 +2593,7 @@ function buildCardsView(products) {
                 <div class="product-main-content" onclick="toggleProductDetails(this.closest('.product-card-improved'))" style="cursor: pointer;">
                     <div class="product-image-container">
                         <img src="${product.image}" alt="${product.name}" class="product-image-lg"
-                             onerror="this.src=getCategoryFallbackImage('${(product.category || '').replace(/'/g, "\\'")}'); this.onerror=null;">
+                             onerror="this.src=getCategoryFallbackImage('${(product.category || '').replace(/'/g, "\\'")}', '${(product.name || '').replace(/'/g, "\\'")}'); this.onerror=null;">
                     </div>
                     <div class="product-info-section">
                         <div class="product-title">${product.name}</div>
@@ -2555,7 +2659,7 @@ function buildCompactView(products) {
                 <div class="product-card-header" onclick="toggleProductDetails(this)">
                     <div class="product-info">
                         <img src="${product.image}" alt="${product.name}" class="product-image"
-                             onerror="this.src=getCategoryFallbackImage('${(product.category || '').replace(/'/g, "\\'")}'); this.onerror=null;">
+                             onerror="this.src=getCategoryFallbackImage('${(product.category || '').replace(/'/g, "\\'")}', '${(product.name || '').replace(/'/g, "\\'")}'); this.onerror=null;">
                         <div class="product-details">
                             <span class="product-name">${product.name}</span>
                             <span class="product-category">${product.category || ''}</span>
@@ -2611,7 +2715,7 @@ function buildTableView(products) {
         return `
             <tr>
                 <td>
-                    <img src="${product.image}" alt="" class="product-img-small" onerror="this.src=getCategoryFallbackImage('${(product.category || '').replace(/'/g, "\\'")}'); this.onerror=null;">
+                    <img src="${product.image}" alt="" class="product-img-small" onerror="this.src=getCategoryFallbackImage('${(product.category || '').replace(/'/g, "\\'")}', '${(product.name || '').replace(/'/g, "\\'")}'); this.onerror=null;">
                 </td>
                 <td>${product.name}</td>
                 <td>${product.category || '-'}</td>
