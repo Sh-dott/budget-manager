@@ -10,6 +10,8 @@ const zlib = require('zlib');
 const https = require('https');
 const http = require('http');
 const { spawn } = require('child_process');
+const { CHAINS, fetchChain, fetchAllChains } = require('./scripts/chain_fetcher');
+const { resolveImagesForProducts, validateAndRefreshImages, CATEGORY_FALLBACK_IMAGES, resolveProductImage } = require('./scripts/image_resolver');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -54,7 +56,8 @@ async function connectDB() {
             );
             await db.collection('products').createIndex({ barcode: 1 }, { unique: true, sparse: true });
             await db.collection('products').createIndex({ itemCode: 1 });
-            console.log('Products collection indexes created');
+            await db.collection('imageCache').createIndex({ barcode: 1 }, { unique: true });
+            console.log('Products and imageCache collection indexes created');
         } catch (indexError) {
             // Index might already exist
             if (indexError.code !== 85 && indexError.code !== 86) {
@@ -861,24 +864,83 @@ function fetchUrl(url, options = {}) {
     });
 }
 
-// Helper: Get product image from OpenFoodFacts
-async function getProductImage(barcode) {
-    try {
-        const url = `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`;
-        const response = await fetchUrl(url);
-        const data = JSON.parse(response);
+// Helper: Get product image - delegates to image_resolver
+async function getProductImage(barcode, productName, category) {
+    return resolveProductImage(db, barcode, productName, category);
+}
 
-        if (data.status === 1 && data.product) {
-            return data.product.image_url ||
-                   data.product.image_front_url ||
-                   data.product.image_small_url ||
-                   null;
+// ========================================
+// Unified Chain Product Storage (chainPrices map)
+// ========================================
+async function storeChainProducts(chainId, products) {
+    const stats = { total: 0, updated: 0, errors: 0 };
+    const now = new Date();
+    const chain = CHAINS[chainId];
+    if (!chain) return stats;
+
+    for (const product of products) {
+        try {
+            stats.total++;
+            const barcode = product.barcode.padStart(13, '0');
+
+            if (!barcode || !product.name || !product.price) continue;
+
+            // Build the chainPrices map entry for this chain
+            const chainPriceEntry = {
+                chain: chainId,
+                chainName: chain.name,
+                price: product.price,
+                lastUpdated: now
+            };
+
+            // Fetch existing product to merge chainPrices
+            const existing = await db.collection('products').findOne({ barcode });
+
+            // Merge into chainPrices map
+            const chainPrices = (existing && existing.chainPrices) ? { ...existing.chainPrices } : {};
+            chainPrices[chainId] = chainPriceEntry;
+
+            // Recompute prices array from chainPrices map
+            const prices = Object.values(chainPrices).map(cp => ({
+                chain: cp.chain,
+                chainName: cp.chainName,
+                price: cp.price,
+                lastUpdated: cp.lastUpdated
+            }));
+
+            // Compute cheapest
+            const cheapest = prices.reduce((min, p) => p.price < min.price ? p : min, prices[0]);
+
+            await db.collection('products').updateOne(
+                { barcode },
+                {
+                    $set: {
+                        barcode,
+                        itemCode: product.barcode,
+                        name: product.name,
+                        category: product.category || mapCategory(product.manufacturer, product.name),
+                        manufacturer: product.manufacturer || '',
+                        chainPrices,
+                        prices,
+                        cheapestPrice: cheapest.price,
+                        cheapestChain: cheapest.chainName,
+                        lastUpdated: now,
+                        dataSource: 'chain-fetcher'
+                    }
+                },
+                { upsert: true }
+            );
+
+            stats.updated++;
+        } catch (error) {
+            stats.errors++;
+            if (stats.errors <= 3) {
+                console.error(`Error storing product: ${error.message}`);
+            }
         }
-        return null;
-    } catch (error) {
-        console.log(`No image found for barcode ${barcode}`);
-        return null;
     }
+
+    return stats;
 }
 
 // Helper: Map product category
@@ -1164,42 +1226,92 @@ async function fetchRamiLevyPrices() {
 // Sync Endpoints
 // ========================================
 
-// Manual sync trigger - Shufersal
+// Generic per-chain sync endpoint
+app.post('/api/sync/chain/:chainId', async (req, res) => {
+    try {
+        const { chainId } = req.params;
+        if (!CHAINS[chainId]) {
+            return res.status(400).json({ success: false, error: `Unknown chain: ${chainId}. Valid: ${Object.keys(CHAINS).join(', ')}` });
+        }
+
+        console.log(`Manual sync triggered for ${chainId}...`);
+        const result = await fetchChain(chainId);
+
+        if (result.success && result.products.length > 0) {
+            const storeStats = await storeChainProducts(chainId, result.products);
+            await db.collection('settings').updateOne(
+                { _id: 'sync-status' },
+                { $set: { lastSync: new Date(), [`chainResults.${chainId}`]: { ...storeStats, productsFetched: result.products.length, syncedAt: new Date() } } },
+                { upsert: true }
+            );
+            res.json({ success: true, message: `${result.chainName} sync complete`, stats: storeStats, productsFetched: result.products.length });
+        } else {
+            res.json({ success: false, message: `${result.chainName}: ${result.error || 'no products fetched'}` });
+        }
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Backward-compatible aliases
 app.post('/api/sync/shufersal', async (req, res) => {
     try {
-        const stats = await fetchShufersalPrices();
-        res.json({ success: true, message: 'Shufersal sync complete', stats });
+        const result = await fetchChain('shufersal');
+        if (result.success && result.products.length > 0) {
+            const stats = await storeChainProducts('shufersal', result.products);
+            res.json({ success: true, message: 'Shufersal sync complete', stats });
+        } else {
+            // Fallback to legacy sample data
+            const stats = await fetchShufersalPrices();
+            res.json({ success: true, message: 'Shufersal sync complete (fallback)', stats });
+        }
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// Manual sync trigger - Rami Levy
 app.post('/api/sync/ramilevi', async (req, res) => {
     try {
-        const stats = await fetchRamiLevyPrices();
-        res.json({ success: true, message: 'Rami Levy sync complete', stats });
+        const result = await fetchChain('rami_levy');
+        if (result.success && result.products.length > 0) {
+            const stats = await storeChainProducts('rami_levy', result.products);
+            res.json({ success: true, message: 'Rami Levy sync complete', stats });
+        } else {
+            const stats = await fetchRamiLevyPrices();
+            res.json({ success: true, message: 'Rami Levy sync complete (fallback)', stats });
+        }
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// Full sync - all chains
+// Full sync - all chains via unified fetcher
 app.post('/api/sync/all', async (req, res) => {
     try {
-        const results = {
-            shufersal: await fetchShufersalPrices(),
-            ramiLevy: await fetchRamiLevyPrices()
-        };
+        console.log('Full sync triggered for all chains...');
+        const chainResults = await fetchAllChains();
+        const allStats = {};
+
+        for (const [chainId, result] of Object.entries(chainResults)) {
+            if (result.success && result.products.length > 0) {
+                allStats[chainId] = await storeChainProducts(chainId, result.products);
+                allStats[chainId].productsFetched = result.products.length;
+            } else {
+                allStats[chainId] = { success: false, error: result.error, productsFetched: 0 };
+            }
+        }
+
+        // Resolve images for new products
+        const imageStats = await resolveImagesForProducts(db, 200);
 
         // Update sync status
         await db.collection('settings').updateOne(
             { _id: 'sync-status' },
-            { $set: { lastSync: new Date(), results } },
+            { $set: { lastSync: new Date(), results: allStats, imageStats, type: 'chain-fetcher-all' } },
             { upsert: true }
         );
 
-        res.json({ success: true, message: 'Full sync complete', results });
+        res.json({ success: true, message: 'Full sync complete', results: allStats, imageStats });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -1215,16 +1327,7 @@ app.get('/api/sync/status', async (req, res) => {
             lastSync: status?.lastSync,
             productCount,
             results: status?.results,
-            availableChains: [
-                { id: 'shufersal', name: 'שופרסל' },
-                { id: 'rami_levy', name: 'רמי לוי' },
-                { id: 'mega', name: 'מגה' },
-                { id: 'victory', name: 'ויקטורי' },
-                { id: 'yeinot_bitan', name: 'יינות ביתן' },
-                { id: 'tiv_taam', name: 'טיב טעם' },
-                { id: 'osher_ad', name: 'אושר עד' },
-                { id: 'hazi_hinam', name: 'חצי חינם' }
-            ]
+            availableChains: Object.entries(CHAINS).map(([id, c]) => ({ id, name: c.name, type: c.type }))
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -1871,15 +1974,7 @@ app.get('/api/prices/search', async (req, res) => {
                 // Get image
                 let imageUrl = product.image;
                 if (!imageUrl) {
-                    const categoryImages = {
-                        'מוצרי חלב': 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=200',
-                        'לחם ומאפים': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200',
-                        'בשר ועוף': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200',
-                        'משקאות': 'https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=200',
-                        'חטיפים': 'https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=200',
-                        'פירות וירקות': 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=200'
-                    };
-                    imageUrl = categoryImages[product.category] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200';
+                    imageUrl = CATEGORY_FALLBACK_IMAGES[product.category] || CATEGORY_FALLBACK_IMAGES['\u05DB\u05DC\u05DC\u05D9'] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200';
                 }
 
                 allProducts.push({
@@ -2125,61 +2220,113 @@ function cleanupScraperTmpDirs() {
     }
 }
 
-// Schedule sync at 2 AM daily
-cron.schedule('0 2 * * *', async () => {
-    console.log('Starting scheduled price sync at', new Date().toISOString());
+// ========================================
+// Cron: Major chains every 8 hours (2AM, 10AM, 6PM)
+// ========================================
+const MAJOR_CHAINS = ['shufersal', 'rami_levy', 'victory', 'yeinot_bitan', 'osher_ad'];
+const MINOR_CHAINS = ['hazi_hinam', 'tiv_taam', 'yohananof'];
 
-    // Clean up leftover temp files from previous runs before starting
+cron.schedule('0 2,10,18 * * *', async () => {
+    console.log('Starting scheduled major chains sync at', new Date().toISOString());
     cleanupScraperTmpDirs();
 
     try {
-        // Try Python scraper first (real data)
-        let usedPythonScraper = false;
-        try {
-            console.log('Attempting Python scraper for real data...');
-            const scraperResult = await runPythonScraper(['shufersal', 'rami_levy', 'victory']);
-            const storeStats = await storeScrapedProducts(scraperResult);
+        const chainResults = await fetchAllChains(MAJOR_CHAINS);
+        const allStats = {};
 
-            if (storeStats.updated > 0) {
-                usedPythonScraper = true;
-                await db.collection('settings').updateOne(
-                    { _id: 'sync-status' },
-                    {
-                        $set: {
-                            lastSync: new Date(),
-                            lastScrapeResult: {
-                                success: true,
-                                totalProducts: scraperResult.total_products,
-                                storeStats
-                            },
-                            type: 'scheduled-python'
-                        }
-                    },
-                    { upsert: true }
-                );
-                console.log('Scheduled Python scrape complete:', storeStats);
+        for (const [chainId, result] of Object.entries(chainResults)) {
+            if (result.success && result.products.length > 0) {
+                allStats[chainId] = await storeChainProducts(chainId, result.products);
+                allStats[chainId].productsFetched = result.products.length;
+                console.log(`  Cron: ${chainId} - ${result.products.length} products stored`);
+            } else {
+                allStats[chainId] = { success: false, error: result.error, productsFetched: 0 };
+                console.log(`  Cron: ${chainId} - failed: ${result.error}`);
             }
-        } catch (pythonError) {
-            console.log('Python scraper failed, using fallback:', pythonError.message);
         }
 
-        // Fallback to sample data if Python scraper failed
-        if (!usedPythonScraper) {
-            const results = {
-                shufersal: await fetchShufersalPrices(),
-                ramiLevy: await fetchRamiLevyPrices()
-            };
+        // Resolve images for new products
+        const imageStats = await resolveImagesForProducts(db, 200);
 
-            await db.collection('settings').updateOne(
-                { _id: 'sync-status' },
-                { $set: { lastSync: new Date(), results, type: 'scheduled-fallback' } },
-                { upsert: true }
-            );
+        await db.collection('settings').updateOne(
+            { _id: 'sync-status' },
+            {
+                $set: {
+                    lastSync: new Date(),
+                    results: allStats,
+                    imageStats,
+                    type: 'scheduled-major'
+                }
+            },
+            { upsert: true }
+        );
 
-            console.log('Scheduled sync complete (fallback):', results);
-        }
+        console.log('Major chains sync complete:', JSON.stringify(Object.fromEntries(
+            Object.entries(allStats).map(([k, v]) => [k, v.productsFetched || 0])
+        )));
     } catch (error) {
-        console.error('Scheduled sync failed:', error);
+        console.error('Scheduled major chains sync failed:', error);
+    }
+}, {
+    timezone: 'Asia/Jerusalem'
+});
+
+// ========================================
+// Cron: Minor chains daily at 3AM
+// ========================================
+cron.schedule('0 3 * * *', async () => {
+    console.log('Starting scheduled minor chains sync at', new Date().toISOString());
+    cleanupScraperTmpDirs();
+
+    try {
+        const chainResults = await fetchAllChains(MINOR_CHAINS);
+        const allStats = {};
+
+        for (const [chainId, result] of Object.entries(chainResults)) {
+            if (result.success && result.products.length > 0) {
+                allStats[chainId] = await storeChainProducts(chainId, result.products);
+                allStats[chainId].productsFetched = result.products.length;
+                console.log(`  Cron: ${chainId} - ${result.products.length} products stored`);
+            } else {
+                allStats[chainId] = { success: false, error: result.error, productsFetched: 0 };
+            }
+        }
+
+        // Resolve images for new products
+        const imageStats = await resolveImagesForProducts(db, 200);
+
+        await db.collection('settings').updateOne(
+            { _id: 'sync-status' },
+            {
+                $set: {
+                    lastMinorSync: new Date(),
+                    minorResults: allStats,
+                    imageStats,
+                    type: 'scheduled-minor'
+                }
+            },
+            { upsert: true }
+        );
+
+        console.log('Minor chains sync complete');
+    } catch (error) {
+        console.error('Scheduled minor chains sync failed:', error);
+    }
+}, {
+    timezone: 'Asia/Jerusalem'
+});
+
+// ========================================
+// Cron: Image validation weekly Sunday 4AM
+// ========================================
+cron.schedule('0 4 * * 0', async () => {
+    console.log('Starting weekly image validation at', new Date().toISOString());
+
+    try {
+        const stats = await validateAndRefreshImages(db, 500);
+        console.log('Image validation complete:', stats);
+    } catch (error) {
+        console.error('Image validation failed:', error);
     }
 }, {
     timezone: 'Asia/Jerusalem'

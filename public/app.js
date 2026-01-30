@@ -2159,8 +2159,36 @@ const chainLogos = {
     'יינות ביתן': '🟣',
     'מגה': '🔴',
     'חצי חינם': '🟤',
-    'טיב טעם': '⚫'
+    'טיב טעם': '⚫',
+    'יוחננוף': '🟩'
 };
+
+// Category fallback images for broken/missing product images
+const CATEGORY_FALLBACK_IMAGES = {
+    'מוצרי חלב': 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=200',
+    'לחם ומאפים': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200',
+    'ביצים': 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200',
+    'בשר ועוף': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200',
+    'בשר ודגים': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200',
+    'דגים': 'https://images.unsplash.com/photo-1534604973900-c43ab4c2e0ab?w=200',
+    'פירות וירקות': 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=200',
+    'משקאות': 'https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=200',
+    'שתייה': 'https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=200',
+    'חטיפים': 'https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=200',
+    'ניקיון': 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=200',
+    'מוצרי ניקיון': 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=200',
+    'פסטה ואורז': 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=200',
+    'שימורים': 'https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=200',
+    'קפה ותה': 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=200',
+    'תינוקות': 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=200',
+    'כללי': 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200',
+    'מזון כללי': 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200',
+    'אחר': 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200',
+};
+
+function getCategoryFallbackImage(category) {
+    return CATEGORY_FALLBACK_IMAGES[category] || CATEGORY_FALLBACK_IMAGES['כללי'];
+}
 
 async function searchPrices() {
     const input = document.getElementById('priceSearchInput');
@@ -2207,7 +2235,7 @@ async function searchPrices() {
                             <div class="product-card-header">
                                 <div class="product-info">
                                     <img src="${data.image}" alt="${data.product}" class="product-image"
-                                         onerror="this.style.display='none'">
+                                         onerror="this.src=getCategoryFallbackImage('${(data.category || '').replace(/'/g, "\\'")}'); this.onerror=null;">
                                     <div class="product-details">
                                         <span class="product-name">${data.product || query}</span>
                                         ${data.category ? `<span class="product-category">${data.category}</span>` : ''}
@@ -2461,7 +2489,7 @@ function buildCardsView(products) {
                 <div class="product-main-content" onclick="toggleProductDetails(this.closest('.product-card-improved'))" style="cursor: pointer;">
                     <div class="product-image-container">
                         <img src="${product.image}" alt="${product.name}" class="product-image-lg"
-                             onerror="this.style.display='none'">
+                             onerror="this.src=getCategoryFallbackImage('${(product.category || '').replace(/'/g, "\\'")}'); this.onerror=null;">
                     </div>
                     <div class="product-info-section">
                         <div class="product-title">${product.name}</div>
@@ -2527,7 +2555,7 @@ function buildCompactView(products) {
                 <div class="product-card-header" onclick="toggleProductDetails(this)">
                     <div class="product-info">
                         <img src="${product.image}" alt="${product.name}" class="product-image"
-                             onerror="this.style.display='none'">
+                             onerror="this.src=getCategoryFallbackImage('${(product.category || '').replace(/'/g, "\\'")}'); this.onerror=null;">
                         <div class="product-details">
                             <span class="product-name">${product.name}</span>
                             <span class="product-category">${product.category || ''}</span>
@@ -2583,7 +2611,7 @@ function buildTableView(products) {
         return `
             <tr>
                 <td>
-                    <img src="${product.image}" alt="" class="product-img-small" onerror="this.style.display='none'">
+                    <img src="${product.image}" alt="" class="product-img-small" onerror="this.src=getCategoryFallbackImage('${(product.category || '').replace(/'/g, "\\'")}'); this.onerror=null;">
                 </td>
                 <td>${product.name}</td>
                 <td>${product.category || '-'}</td>
