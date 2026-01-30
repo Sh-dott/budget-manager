@@ -6,7 +6,7 @@
  *   2. OpenFoodFacts API by barcode (/api/v2/product/{barcode}.json)
  *   3. Constructed OFF URL with HEAD validation (front_he, front_en, front, 1)
  *   4. OpenFoodFacts name search (cgi/search.pl)
- *   5. Product-specific keyword matching (Hebrew name -> specific product image)
+ *   5. Product-specific keyword matching (Hebrew name -> verified Wikimedia Commons image)
  *   6. Category fallback image (generic category images, last resort)
  */
 
@@ -16,149 +16,151 @@ const http = require('http');
 // ========================================
 // Product-Specific Keyword Images
 // ========================================
+// All images are verified Wikimedia Commons URLs with descriptive filenames.
 // Ordered: first match wins. More specific keywords come before general ones.
 const PRODUCT_KEYWORD_IMAGES = [
     // Dairy - specific products
-    { keywords: ['\u05E7\u05D5\u05D8\u05D2'], image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=200' },          // קוטג -> cottage cheese
-    { keywords: ['\u05D2\u05D1\u05D9\u05E0\u05D4 \u05E6\u05D4\u05D5\u05D1\u05D4'], image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200' },  // גבינה צהובה -> yellow cheese
-    { keywords: ['\u05D2\u05D1\u05D9\u05E0\u05D4 \u05DC\u05D1\u05E0\u05D4', '\u05D2\u05D1\u05D9\u05E0\u05D4 \u05E9\u05DE\u05E0\u05EA'], image: 'https://images.unsplash.com/photo-1559561853-08451507cbe7?w=200' },  // גבינה לבנה / גבינה שמנת -> cream cheese
-    { keywords: ['\u05D2\u05D1\u05D9\u05E0\u05D4'], image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200' },       // גבינה -> cheese
-    { keywords: ['\u05D9\u05D5\u05D2\u05D5\u05E8\u05D8'], image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=200' },   // יוגורט -> yogurt
-    { keywords: ['\u05DE\u05E2\u05D3\u05DF'], image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=200' },               // מעדן -> pudding/dessert
-    { keywords: ['\u05E9\u05DE\u05E0\u05EA'], image: 'https://images.unsplash.com/photo-1559561853-08451507cbe7?w=200' },                  // שמנת -> cream
-    { keywords: ['\u05DC\u05D1\u05DF'], image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=200' },                      // לבן -> leben
-    { keywords: ['\u05D7\u05DE\u05D0\u05D4'], image: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=200' },               // חמאה -> butter
-    { keywords: ['\u05E9\u05D5\u05E7\u05D5', '\u05E9\u05D5\u05E7\u05D5\u05DC\u05D3 \u05D7\u05DC\u05D1'], image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=200' }, // שוקו -> chocolate milk
-    { keywords: ['\u05D7\u05DC\u05D1'], image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=200' },                        // חלב -> milk
+    { keywords: ['\u05E7\u05D5\u05D8\u05D2'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Tvorog.jpg/300px-Tvorog.jpg' },          // קוטג -> cottage cheese
+    { keywords: ['\u05D2\u05D1\u05D9\u05E0\u05D4 \u05E6\u05D4\u05D5\u05D1\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Emmental_015.jpg/300px-Emmental_015.jpg' },  // גבינה צהובה -> yellow cheese
+    { keywords: ['\u05D2\u05D1\u05D9\u05E0\u05D4 \u05DC\u05D1\u05E0\u05D4', '\u05D2\u05D1\u05D9\u05E0\u05D4 \u05E9\u05DE\u05E0\u05EA'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/NCI_cream_cheese_bagel.jpg/300px-NCI_cream_cheese_bagel.jpg' },  // גבינה לבנה / גבינה שמנת -> cream cheese
+    { keywords: ['\u05D2\u05D1\u05D9\u05E0\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Emmental_015.jpg/300px-Emmental_015.jpg' },       // גבינה -> cheese
+    { keywords: ['\u05D9\u05D5\u05D2\u05D5\u05E8\u05D8'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Joghurt.jpg/300px-Joghurt.jpg' },   // יוגורט -> yogurt
+    { keywords: ['\u05DE\u05E2\u05D3\u05DF'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Joghurt.jpg/300px-Joghurt.jpg' },               // מעדן -> pudding/dessert
+    { keywords: ['\u05E9\u05DE\u05E0\u05EA'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/NCI_cream_cheese_bagel.jpg/300px-NCI_cream_cheese_bagel.jpg' },  // שמנת -> cream
+    { keywords: ['\u05DC\u05D1\u05DF'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Joghurt.jpg/300px-Joghurt.jpg' },                      // לבן -> leben
+    { keywords: ['\u05D7\u05DE\u05D0\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Western-pack-butter.jpg/300px-Western-pack-butter.jpg' },  // חמאה -> butter
+    { keywords: ['\u05E9\u05D5\u05E7\u05D5', '\u05E9\u05D5\u05E7\u05D5\u05DC\u05D3 \u05D7\u05DC\u05D1'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Chocolate_milk.jpg/300px-Chocolate_milk.jpg' }, // שוקו -> chocolate milk
+    { keywords: ['\u05D7\u05DC\u05D1'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Milk_glass.jpg/300px-Milk_glass.jpg' },                // חלב -> milk
 
     // Bread & bakery
-    { keywords: ['\u05E4\u05D9\u05EA\u05D4'], image: 'https://images.unsplash.com/photo-1586075574812-eeea2a490979?w=200' },               // פיתה -> pita
-    { keywords: ['\u05D7\u05DC\u05D4'], image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200' },                      // חלה -> challah
-    { keywords: ['\u05DC\u05D7\u05DE\u05E0\u05D9\u05D4', '\u05DC\u05D7\u05DE\u05E0\u05D9\u05D5\u05EA'], image: 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=200' },   // לחמניה -> bun/roll
-    { keywords: ['\u05D1\u05D0\u05D2\u05D8'], image: 'https://images.unsplash.com/photo-1585535936540-c5f4cce4d42a?w=200' },               // באגט -> baguette
-    { keywords: ['\u05E2\u05D5\u05D2\u05D4', '\u05E2\u05D5\u05D2\u05EA'], image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=200' },   // עוגה -> cake
-    { keywords: ['\u05E2\u05D5\u05D2\u05D9\u05D5\u05EA', '\u05E2\u05D5\u05D2\u05D9\u05D4'], image: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=200' }, // עוגיות -> cookies
-    { keywords: ['\u05DC\u05D7\u05DD'], image: 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=200' },                        // לחם -> bread
+    { keywords: ['\u05E4\u05D9\u05EA\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Pita.jpg/300px-Pita.jpg' },                     // פיתה -> pita
+    { keywords: ['\u05D7\u05DC\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Challah.jpg/300px-Challah.jpg' },                      // חלה -> challah
+    { keywords: ['\u05DC\u05D7\u05DE\u05E0\u05D9\u05D4', '\u05DC\u05D7\u05DE\u05E0\u05D9\u05D5\u05EA'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/61/Bread_rolls.jpg/300px-Bread_rolls.jpg' },   // לחמניה -> bun/roll
+    { keywords: ['\u05D1\u05D0\u05D2\u05D8'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/French_bread_DSC09293.jpg/300px-French_bread_DSC09293.jpg' },  // באגט -> baguette
+    { keywords: ['\u05E2\u05D5\u05D2\u05D4', '\u05E2\u05D5\u05D2\u05EA'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Pound_layer_cake.jpg/300px-Pound_layer_cake.jpg' },   // עוגה -> cake
+    { keywords: ['\u05E2\u05D5\u05D2\u05D9\u05D5\u05EA', '\u05E2\u05D5\u05D2\u05D9\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Chocolate_chip_cookies.jpg/300px-Chocolate_chip_cookies.jpg' }, // עוגיות -> cookies
+    { keywords: ['\u05DC\u05D7\u05DD'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Anadama_bread_%281%29.jpg/300px-Anadama_bread_%281%29.jpg' },  // לחם -> bread
 
     // Eggs
-    { keywords: ['\u05D1\u05D9\u05E6\u05D9\u05DD', '\u05D1\u05D9\u05E6\u05D4'], image: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200' },   // ביצים -> eggs
+    { keywords: ['\u05D1\u05D9\u05E6\u05D9\u05DD', '\u05D1\u05D9\u05E6\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Chicken_egg_2009-06-04.jpg/300px-Chicken_egg_2009-06-04.jpg' },   // ביצים -> eggs
 
     // Meat & poultry
-    { keywords: ['\u05E9\u05E0\u05D9\u05E6\u05DC'], image: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=200' },         // שניצל -> schnitzel
-    { keywords: ['\u05D4\u05DE\u05D1\u05D5\u05E8\u05D2\u05E8'], image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200' }, // המבורגר -> hamburger
-    { keywords: ['\u05E0\u05E7\u05E0\u05D9\u05E7', '\u05E0\u05E7\u05E0\u05D9\u05E7\u05D9\u05D5\u05EA'], image: 'https://images.unsplash.com/photo-1558030006-450675393462?w=200' },  // נקניק -> sausage/hotdog
-    { keywords: ['\u05DB\u05E8\u05E2\u05D9\u05D9\u05DD'], image: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=200' },   // כרעיים -> drumsticks
-    { keywords: ['\u05D7\u05D6\u05D4 \u05E2\u05D5\u05E3', '\u05D7\u05D6\u05D4 \u05D7\u05D6\u05D4'], image: 'https://images.unsplash.com/photo-1604503468506-a8da13d82571?w=200' },  // חזה עוף -> chicken breast
-    { keywords: ['\u05E2\u05D5\u05E3'], image: 'https://images.unsplash.com/photo-1587593810167-a84920ea0781?w=200' },                      // עוף -> chicken
-    { keywords: ['\u05D1\u05E7\u05E8'], image: 'https://images.unsplash.com/photo-1588347818036-558601350947?w=200' },                      // בקר -> beef
-    { keywords: ['\u05D1\u05E9\u05E8'], image: 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200' },                      // בשר -> meat
+    { keywords: ['\u05E9\u05E0\u05D9\u05E6\u05DC'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Wiener-Schnitzel02.jpg/300px-Wiener-Schnitzel02.jpg' },  // שניצל -> schnitzel
+    { keywords: ['\u05D4\u05DE\u05D1\u05D5\u05E8\u05D2\u05E8'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Hamburger_sandwich.jpg/300px-Hamburger_sandwich.jpg' }, // המבורגר -> hamburger
+    { keywords: ['\u05E0\u05E7\u05E0\u05D9\u05E7', '\u05E0\u05E7\u05E0\u05D9\u05E7\u05D9\u05D5\u05EA'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Hot_dog_with_mustard.png/300px-Hot_dog_with_mustard.png' },  // נקניק -> sausage/hotdog
+    { keywords: ['\u05DB\u05E8\u05E2\u05D9\u05D9\u05DD'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/Roasted_chicken_leg.jpg/300px-Roasted_chicken_leg.jpg' },  // כרעיים -> drumsticks
+    { keywords: ['\u05D7\u05D6\u05D4 \u05E2\u05D5\u05E3', '\u05D7\u05D6\u05D4 \u05D7\u05D6\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d8/Chicken_schnitzel.jpg/300px-Chicken_schnitzel.jpg' },  // חזה עוף -> chicken breast
+    { keywords: ['\u05E2\u05D5\u05E3'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Grilled_chicken.jpg/300px-Grilled_chicken.jpg' },      // עוף -> chicken
+    { keywords: ['\u05D1\u05E7\u05E8'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Steak_03_bg_040306.jpg/300px-Steak_03_bg_040306.jpg' },  // בקר -> beef
+    { keywords: ['\u05D1\u05E9\u05E8'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Standing-rib-roast.jpg/300px-Standing-rib-roast.jpg' },  // בשר -> meat
 
     // Fish
-    { keywords: ['\u05E1\u05DC\u05DE\u05D5\u05DF'], image: 'https://images.unsplash.com/photo-1574781330855-d0db8cc6a79c?w=200' },         // סלמון -> salmon
-    { keywords: ['\u05D8\u05D5\u05E0\u05D4'], image: 'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=200' },                  // טונה -> tuna
-    { keywords: ['\u05D3\u05D2'], image: 'https://images.unsplash.com/photo-1534604973900-c43ab4c2e0ab?w=200' },                            // דג -> fish
+    { keywords: ['\u05E1\u05DC\u05DE\u05D5\u05DF'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/Salmon_sashimi.jpg/300px-Salmon_sashimi.jpg' },  // סלמון -> salmon
+    { keywords: ['\u05D8\u05D5\u05E0\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Tuna_steak.JPG/300px-Tuna_steak.JPG' },          // טונה -> tuna
+    { keywords: ['\u05D3\u05D2'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Tilapia_fish.jpg/300px-Tilapia_fish.jpg' },                    // דג -> fish
 
     // Fruits & vegetables
-    { keywords: ['\u05EA\u05E4\u05D5\u05D7 \u05D0\u05D3\u05DE\u05D4', '\u05EA\u05E4\u05D5\u05D7\u05D9\u05DD'], image: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=200' },  // תפוח -> apple
-    { keywords: ['\u05D1\u05E0\u05E0\u05D4'], image: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=200' },               // בננה -> banana
-    { keywords: ['\u05EA\u05E4\u05D5\u05D6', '\u05EA\u05E4\u05D5\u05D6\u05D9\u05DD'], image: 'https://images.unsplash.com/photo-1547514701-42dfc6400d1d?w=200' },  // תפוז -> orange
-    { keywords: ['\u05DC\u05D9\u05DE\u05D5\u05DF'], image: 'https://images.unsplash.com/photo-1590502593747-42a996133562?w=200' },          // לימון -> lemon
-    { keywords: ['\u05D0\u05D1\u05D5\u05E7\u05D3\u05D5'], image: 'https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=200' },   // אבוקדו -> avocado
-    { keywords: ['\u05E2\u05D2\u05D1\u05E0\u05D9', '\u05E2\u05D2\u05D1\u05E0\u05D9\u05D5\u05EA'], image: 'https://images.unsplash.com/photo-1546470427-e26264be0b0b?w=200' },  // עגבניה -> tomato
-    { keywords: ['\u05DE\u05DC\u05E4\u05E4\u05D5\u05DF'], image: 'https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=200' },   // מלפפון -> cucumber
-    { keywords: ['\u05D2\u05D6\u05E8'], image: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=200' },                      // גזר -> carrot
-    { keywords: ['\u05D1\u05E6\u05DC'], image: 'https://images.unsplash.com/photo-1518977956812-cd3dbadaaf31?w=200' },                      // בצל -> onion
-    { keywords: ['\u05EA\u05E4\u05D5\u05D7 \u05D0\u05D3\u05DE\u05D4'], image: 'https://images.unsplash.com/photo-1568702846914-96b305d2ead1?w=200' },  // תפוח אדמה -> potato
+    { keywords: ['\u05EA\u05E4\u05D5\u05D7 \u05D0\u05D3\u05DE\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Patates.jpg/300px-Patates.jpg' },  // תפוח אדמה -> potato
+    { keywords: ['\u05EA\u05E4\u05D5\u05D7\u05D9\u05DD', '\u05EA\u05E4\u05D5\u05D7'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Fuji_apple.jpg/300px-Fuji_apple.jpg' },  // תפוחים -> apple
+    { keywords: ['\u05D1\u05E0\u05E0\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Banana-Single.jpg/300px-Banana-Single.jpg' },    // בננה -> banana
+    { keywords: ['\u05EA\u05E4\u05D5\u05D6', '\u05EA\u05E4\u05D5\u05D6\u05D9\u05DD'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Orange-Fruit-Pieces.jpg/300px-Orange-Fruit-Pieces.jpg' },  // תפוז -> orange
+    { keywords: ['\u05DC\u05D9\u05DE\u05D5\u05DF'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Lemon.jpg/300px-Lemon.jpg' },              // לימון -> lemon
+    { keywords: ['\u05D0\u05D1\u05D5\u05E7\u05D3\u05D5'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Avocado_Hass_-_single_and_halved.jpg/300px-Avocado_Hass_-_single_and_halved.jpg' },  // אבוקדו -> avocado
+    { keywords: ['\u05E2\u05D2\u05D1\u05E0\u05D9', '\u05E2\u05D2\u05D1\u05E0\u05D9\u05D5\u05EA'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Bright_red_tomato_and_cross_section02.jpg/300px-Bright_red_tomato_and_cross_section02.jpg' },  // עגבניה -> tomato
+    { keywords: ['\u05DE\u05DC\u05E4\u05E4\u05D5\u05DF'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Cucumber_and_cross_section.jpg/300px-Cucumber_and_cross_section.jpg' },  // מלפפון -> cucumber
+    { keywords: ['\u05D2\u05D6\u05E8'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/13-08-31-wien-redaktionstreffen-EuT-by-Bi-frie-037.jpg/300px-13-08-31-wien-redaktionstreffen-EuT-by-Bi-frie-037.jpg' },  // גזר -> carrot
+    { keywords: ['\u05D1\u05E6\u05DC'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Onion.jpg/300px-Onion.jpg' },                          // בצל -> onion
 
     // Drinks
-    { keywords: ['\u05E7\u05D5\u05DC\u05D4'], image: 'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=200' },                  // קולה -> cola
-    { keywords: ['\u05E1\u05E4\u05E8\u05D9\u05D9\u05D8'], image: 'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=200' },   // ספרייט -> sprite/lemon soda
-    { keywords: ['\u05DE\u05D9\u05E5 \u05EA\u05E4\u05D5\u05D6\u05D9\u05DD'], image: 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=200' },  // מיץ תפוזים -> orange juice
-    { keywords: ['\u05DE\u05D9\u05E5'], image: 'https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=200' },                      // מיץ -> juice
-    { keywords: ['\u05D1\u05D9\u05E8\u05D4'], image: 'https://images.unsplash.com/photo-1535958636474-b021ee887b13?w=200' },                // בירה -> beer
-    { keywords: ['\u05D9\u05D9\u05DF'], image: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=200' },                      // יין -> wine
-    { keywords: ['\u05DE\u05D9\u05DD \u05DE\u05D9\u05E0\u05E8\u05DC\u05D9\u05DD', '\u05DE\u05D9\u05DD \u05DE\u05E2\u05D9\u05D9\u05DF', '\u05E0\u05D1\u05D9\u05E2\u05D5\u05EA'], image: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=200' },  // מים מינרליים -> water
-    { keywords: ['\u05E1\u05D5\u05D3\u05D4'], image: 'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=200' },               // סודה -> soda
+    { keywords: ['\u05E7\u05D5\u05DC\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Soda_bubbles_macro.jpg/300px-Soda_bubbles_macro.jpg' },  // קולה -> cola
+    { keywords: ['\u05E1\u05E4\u05E8\u05D9\u05D9\u05D8'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Soda_bubbles_macro.jpg/300px-Soda_bubbles_macro.jpg' },  // ספרייט -> sprite
+    { keywords: ['\u05DE\u05D9\u05E5 \u05EA\u05E4\u05D5\u05D6\u05D9\u05DD'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Orangejuice.jpg/300px-Orangejuice.jpg' },  // מיץ תפוזים -> orange juice
+    { keywords: ['\u05DE\u05D9\u05E5'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Orangejuice.jpg/300px-Orangejuice.jpg' },               // מיץ -> juice
+    { keywords: ['\u05D1\u05D9\u05E8\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/NCI_Visuals_Food_Beer.jpg/300px-NCI_Visuals_Food_Beer.jpg' },  // בירה -> beer
+    { keywords: ['\u05D9\u05D9\u05DF'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Red_Wine_Glass.jpg/300px-Red_Wine_Glass.jpg' },          // יין -> wine
+    { keywords: ['\u05DE\u05D9\u05DD \u05DE\u05D9\u05E0\u05E8\u05DC\u05D9\u05DD', '\u05DE\u05D9\u05DD \u05DE\u05E2\u05D9\u05D9\u05DF', '\u05E0\u05D1\u05D9\u05E2\u05D5\u05EA'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Sparkling_water.jpg/300px-Sparkling_water.jpg' },  // מים מינרליים -> water
+    { keywords: ['\u05E1\u05D5\u05D3\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Soda_bubbles_macro.jpg/300px-Soda_bubbles_macro.jpg' },  // סודה -> soda
 
     // Snacks
-    { keywords: ['\u05D1\u05DE\u05D1\u05D4'], image: 'https://images.unsplash.com/photo-1621447504864-d8686e12698c?w=200' },               // במבה -> peanut snack
-    { keywords: ['\u05D1\u05D9\u05E1\u05DC\u05D9'], image: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=200' },         // ביסלי -> pretzel snack
-    { keywords: ['\u05E9\u05D5\u05E7\u05D5\u05DC\u05D3'], image: 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=200' },    // שוקולד -> chocolate
-    { keywords: ['\u05D5\u05D5\u05E4\u05DC'], image: 'https://images.unsplash.com/photo-1568051243851-f9b136146e97?w=200' },                // וופל -> waffle
-    { keywords: ['\u05E1\u05D5\u05DB\u05E8\u05D9\u05D4', '\u05E1\u05D5\u05DB\u05E8\u05D9\u05D5\u05EA'], image: 'https://images.unsplash.com/photo-1581798459219-318e76afafb0?w=200' },  // סוכריה -> candy
-    { keywords: ['\u05D2\u05DC\u05D9\u05D3\u05D4'], image: 'https://images.unsplash.com/photo-1497034825429-c343d7c6a68f?w=200' },         // גלידה -> ice cream
-    { keywords: ['\u05D7\u05D8\u05D9\u05E3', '\u05E6\u05D9\u05E4\u05E1'], image: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=200' },  // חטיף/ציפס -> chips/snack
+    { keywords: ['\u05D1\u05DE\u05D1\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Bamba_snack.jpg/300px-Bamba_snack.jpg' },         // במבה -> bamba
+    { keywords: ['\u05D1\u05D9\u05E1\u05DC\u05D9'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Potato-Chips.jpg/300px-Potato-Chips.jpg' }, // ביסלי -> chips snack
+    { keywords: ['\u05E9\u05D5\u05E7\u05D5\u05DC\u05D3'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Chocolate.jpg/300px-Chocolate.jpg' },  // שוקולד -> chocolate
+    { keywords: ['\u05D5\u05D5\u05E4\u05DC'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Waffles_with_Strawberries.jpg/300px-Waffles_with_Strawberries.jpg' },  // וופל -> waffle
+    { keywords: ['\u05E1\u05D5\u05DB\u05E8\u05D9\u05D4', '\u05E1\u05D5\u05DB\u05E8\u05D9\u05D5\u05EA'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Candy_in_Damascus.jpg/300px-Candy_in_Damascus.jpg' },  // סוכריה -> candy
+    { keywords: ['\u05D2\u05DC\u05D9\u05D3\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Ice_cream_cone.jpg/300px-Ice_cream_cone.jpg' },  // גלידה -> ice cream
+    { keywords: ['\u05D7\u05D8\u05D9\u05E3', '\u05E6\u05D9\u05E4\u05E1'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Potato-Chips.jpg/300px-Potato-Chips.jpg' },  // חטיף/ציפס -> chips/snack
 
     // Pasta, rice, grains
-    { keywords: ['\u05E1\u05E4\u05D2\u05D8\u05D9'], image: 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=200' },            // ספגטי -> spaghetti
-    { keywords: ['\u05E4\u05E1\u05D8\u05D4'], image: 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=200' },                  // פסטה -> pasta
-    { keywords: ['\u05D0\u05D8\u05E8\u05D9\u05D5\u05EA'], image: 'https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=200' },   // אטריות -> noodles
-    { keywords: ['\u05D0\u05D5\u05E8\u05D6'], image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=200' },               // אורז -> rice
-    { keywords: ['\u05E7\u05D5\u05E1\u05E7\u05D5\u05E1'], image: 'https://images.unsplash.com/photo-1585543805890-6051f7829f98?w=200' },   // קוסקוס -> couscous
-    { keywords: ['\u05E4\u05EA\u05D9\u05EA\u05D9\u05DD'], image: 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=200' },      // פתיתים -> ptitim
+    { keywords: ['\u05E1\u05E4\u05D2\u05D8\u05D9'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Spaghetti-prepared.jpg/300px-Spaghetti-prepared.jpg' },  // ספגטי -> spaghetti
+    { keywords: ['\u05E4\u05E1\u05D8\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Spaghetti-prepared.jpg/300px-Spaghetti-prepared.jpg' },  // פסטה -> pasta
+    { keywords: ['\u05D0\u05D8\u05E8\u05D9\u05D5\u05EA'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Spaghetti-prepared.jpg/300px-Spaghetti-prepared.jpg' },  // אטריות -> noodles
+    { keywords: ['\u05D0\u05D5\u05E8\u05D6'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Basmati_Rice.jpg/300px-Basmati_Rice.jpg' },      // אורז -> rice
+    { keywords: ['\u05E7\u05D5\u05E1\u05E7\u05D5\u05E1'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Couscous-1.jpg/300px-Couscous-1.jpg' },  // קוסקוס -> couscous
+    { keywords: ['\u05E4\u05EA\u05D9\u05EA\u05D9\u05DD'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Spaghetti-prepared.jpg/300px-Spaghetti-prepared.jpg' },  // פתיתים -> ptitim
 
     // Canned goods & pantry
-    { keywords: ['\u05E8\u05E1\u05E7 \u05E2\u05D2\u05D1\u05E0\u05D9\u05D5\u05EA'], image: 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?w=200' },  // רסק עגבניות -> tomato paste
-    { keywords: ['\u05D7\u05D5\u05DE\u05D5\u05E1'], image: 'https://images.unsplash.com/photo-1585513553105-31e70ffa0b02?w=200' },         // חומוס -> hummus
-    { keywords: ['\u05D8\u05D7\u05D9\u05E0\u05D4'], image: 'https://images.unsplash.com/photo-1590779033100-9f60a05a013d?w=200' },         // טחינה -> tahini
-    { keywords: ['\u05E9\u05DE\u05DF \u05D6\u05D9\u05EA'], image: 'https://images.unsplash.com/photo-1474979266404-7eabd7875faf?w=200' },  // שמן זית -> olive oil
-    { keywords: ['\u05E9\u05DE\u05DF \u05E7\u05E0\u05D5\u05DC\u05D4', '\u05E9\u05DE\u05DF'], image: 'https://images.unsplash.com/photo-1474979266404-7eabd7875faf?w=200' },  // שמן קנולה -> cooking oil
-    { keywords: ['\u05E9\u05D9\u05DE\u05D5\u05E8\u05D9\u05DD'], image: 'https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=200' },  // שימורים -> canned food
-    { keywords: ['\u05EA\u05D9\u05E8\u05E1'], image: 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=200' },                  // תירס -> corn
-    { keywords: ['\u05D0\u05E4\u05D5\u05E0\u05D4'], image: 'https://images.unsplash.com/photo-1587735243615-c03f25aaff15?w=200' },         // אפונה -> peas
+    { keywords: ['\u05E8\u05E1\u05E7 \u05E2\u05D2\u05D1\u05E0\u05D9\u05D5\u05EA'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Tomato_paste.jpg/300px-Tomato_paste.jpg' },  // רסק עגבניות -> tomato paste
+    { keywords: ['\u05D7\u05D5\u05DE\u05D5\u05E1'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Hummus_from_The_Nile.jpg/300px-Hummus_from_The_Nile.jpg' },  // חומוס -> hummus
+    { keywords: ['\u05D8\u05D7\u05D9\u05E0\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Tahini.jpg/300px-Tahini.jpg' },            // טחינה -> tahini
+    { keywords: ['\u05E9\u05DE\u05DF \u05D6\u05D9\u05EA'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Italian_olive_oil_2007.jpg/300px-Italian_olive_oil_2007.jpg' },  // שמן זית -> olive oil
+    { keywords: ['\u05E9\u05DE\u05DF \u05E7\u05E0\u05D5\u05DC\u05D4', '\u05E9\u05DE\u05DF'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Italian_olive_oil_2007.jpg/300px-Italian_olive_oil_2007.jpg' },  // שמן קנולה -> cooking oil
+    { keywords: ['\u05E9\u05D9\u05DE\u05D5\u05E8\u05D9\u05DD'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Tomato_paste.jpg/300px-Tomato_paste.jpg' },  // שימורים -> canned food
+    { keywords: ['\u05EA\u05D9\u05E8\u05E1'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Corn_on_the_cob.jpg/300px-Corn_on_the_cob.jpg' },  // תירס -> corn
+    { keywords: ['\u05D0\u05E4\u05D5\u05E0\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Green_peas.jpg/300px-Green_peas.jpg' },    // אפונה -> peas
 
     // Coffee & tea
-    { keywords: ['\u05E7\u05E4\u05E1\u05D5\u05DC\u05D5\u05EA', '\u05E7\u05E4\u05E1\u05D5\u05DC\u05D4'], image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefda?w=200' },  // קפסולות -> coffee capsules
-    { keywords: ['\u05D0\u05E1\u05E4\u05E8\u05E1\u05D5'], image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefda?w=200' },   // אספרסו -> espresso
-    { keywords: ['\u05E7\u05E4\u05D4 \u05E0\u05DE\u05E1', '\u05E0\u05E1 \u05E7\u05E4\u05D4', '\u05E7\u05E4\u05D4 \u05E0\u05E1'], image: 'https://images.unsplash.com/photo-1559496417-e7f25cb247f3?w=200' },  // קפה נמס -> instant coffee
-    { keywords: ['\u05E7\u05E4\u05D4'], image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=200' },                      // קפה -> coffee
-    { keywords: ['\u05EA\u05D4'], image: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=200' },                               // תה -> tea
+    { keywords: ['\u05E7\u05E4\u05E1\u05D5\u05DC\u05D5\u05EA', '\u05E7\u05E4\u05E1\u05D5\u05DC\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Cup_of_coffee.jpg/300px-Cup_of_coffee.jpg' },  // קפסולות -> coffee capsules
+    { keywords: ['\u05D0\u05E1\u05E4\u05E8\u05E1\u05D5'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Cup_of_coffee.jpg/300px-Cup_of_coffee.jpg' },  // אספרסו -> espresso
+    { keywords: ['\u05E7\u05E4\u05D4 \u05E0\u05DE\u05E1', '\u05E0\u05E1 \u05E7\u05E4\u05D4', '\u05E7\u05E4\u05D4 \u05E0\u05E1'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Instant_coffee.jpg/300px-Instant_coffee.jpg' },  // קפה נמס -> instant coffee
+    { keywords: ['\u05E7\u05E4\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Cup_of_coffee.jpg/300px-Cup_of_coffee.jpg' },           // קפה -> coffee
+    { keywords: ['\u05EA\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Tea_Cup.jpg/300px-Tea_Cup.jpg' },                             // תה -> tea
 
     // Cleaning
-    { keywords: ['\u05E9\u05DE\u05E4\u05D5'], image: 'https://images.unsplash.com/photo-1585751119414-ef2636f8aede?w=200' },               // שמפו -> shampoo
-    { keywords: ['\u05E1\u05D1\u05D5\u05DF'], image: 'https://images.unsplash.com/photo-1600857544200-b2f666a9a2ec?w=200' },               // סבון -> soap
-    { keywords: ['\u05D0\u05D1\u05E7\u05EA \u05DB\u05D1\u05D9\u05E1\u05D4', '\u05D0\u05D1\u05E7\u05D4'], image: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?w=200' },  // אבקת כביסה -> laundry detergent
-    { keywords: ['\u05E0\u05D5\u05D6\u05DC \u05DB\u05DC\u05D9\u05DD'], image: 'https://images.unsplash.com/photo-1585421514738-01798e348b17?w=200' },  // נוזל כלים -> dish soap
-    { keywords: ['\u05DE\u05D8\u05DC\u05D9\u05D5\u05EA', '\u05DE\u05D2\u05D1\u05D5\u05E0\u05D9\u05DD'], image: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=200' },  // מטליות/מגבונים -> wipes
-    { keywords: ['\u05E0\u05D9\u05D9\u05E8 \u05D8\u05D5\u05D0\u05DC\u05D8'], image: 'https://images.unsplash.com/photo-1584556812952-905ffd0c611a?w=200' },  // נייר טואלט -> toilet paper
+    { keywords: ['\u05E9\u05DE\u05E4\u05D5'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Shampoo.jpg/300px-Shampoo.jpg' },                // שמפו -> shampoo
+    { keywords: ['\u05E1\u05D1\u05D5\u05DF'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Soap.jpg/300px-Soap.jpg' },                      // סבון -> soap
+    { keywords: ['\u05D0\u05D1\u05E7\u05EA \u05DB\u05D1\u05D9\u05E1\u05D4', '\u05D0\u05D1\u05E7\u05D4'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Soap.jpg/300px-Soap.jpg' },  // אבקת כביסה -> laundry detergent
+    { keywords: ['\u05E0\u05D5\u05D6\u05DC \u05DB\u05DC\u05D9\u05DD'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Dishwashing.jpg/300px-Dishwashing.jpg' },  // נוזל כלים -> dish soap
+    { keywords: ['\u05DE\u05D8\u05DC\u05D9\u05D5\u05EA', '\u05DE\u05D2\u05D1\u05D5\u05E0\u05D9\u05DD'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Soap.jpg/300px-Soap.jpg' },  // מטליות/מגבונים -> wipes
+    { keywords: ['\u05E0\u05D9\u05D9\u05E8 \u05D8\u05D5\u05D0\u05DC\u05D8'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Toilet_paper_orientation_over.jpg/300px-Toilet_paper_orientation_over.jpg' },  // נייר טואלט -> toilet paper
 
     // Baby
-    { keywords: ['\u05D7\u05D9\u05EA\u05D5\u05DC\u05D9\u05DD'], image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=200' },  // חיתולים -> diapers
-    { keywords: ['\u05DE\u05D8\u05E8\u05E0\u05D4', '\u05E1\u05D9\u05DE\u05D9\u05DC\u05D0\u05E7'], image: 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=200' },  // מטרנה/סימילאק -> baby formula
+    { keywords: ['\u05D7\u05D9\u05EA\u05D5\u05DC\u05D9\u05DD'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Baby_diaper.jpg/300px-Baby_diaper.jpg' },  // חיתולים -> diapers
+    { keywords: ['\u05DE\u05D8\u05E8\u05E0\u05D4', '\u05E1\u05D9\u05DE\u05D9\u05DC\u05D0\u05E7'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Infant_formula.jpg/300px-Infant_formula.jpg' },  // מטרנה/סימילאק -> baby formula
 
     // Other common items
-    { keywords: ['\u05E7\u05D5\u05E8\u05E0\u05E4\u05DC\u05E7\u05E1', '\u05D3\u05D2\u05E0\u05D9 \u05D1\u05D5\u05E7\u05E8'], image: 'https://images.unsplash.com/photo-1521483451569-e33803c0330c?w=200' },  // קורנפלקס -> cereal
-    { keywords: ['\u05E1\u05D5\u05DB\u05E8'], image: 'https://images.unsplash.com/photo-1581268559468-79decf4956b4?w=200' },               // סוכר -> sugar
-    { keywords: ['\u05E7\u05DE\u05D7'], image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200' },                      // קמח -> flour
-    { keywords: ['\u05DE\u05DC\u05D7'], image: 'https://images.unsplash.com/photo-1518110925495-5fe2fda0442c?w=200' },                      // מלח -> salt
+    { keywords: ['\u05E7\u05D5\u05E8\u05E0\u05E4\u05DC\u05E7\u05E1', '\u05D3\u05D2\u05E0\u05D9 \u05D1\u05D5\u05E7\u05E8'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Cornflakes_in_bowl.jpg/300px-Cornflakes_in_bowl.jpg' },  // קורנפלקס -> cereal
+    { keywords: ['\u05E1\u05D5\u05DB\u05E8'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Sucre_blanc_cassonade_complet_rapadura.jpg/300px-Sucre_blanc_cassonade_complet_rapadura.jpg' },  // סוכר -> sugar
+    { keywords: ['\u05E7\u05DE\u05D7'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/All-Purpose_Flour_%284107895947%29.jpg/300px-All-Purpose_Flour_%284107895947%29.jpg' },  // קמח -> flour
+    { keywords: ['\u05DE\u05DC\u05D7'], image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Salt_shaker_on_white_background.jpg/300px-Salt_shaker_on_white_background.jpg' },  // מלח -> salt
 ];
 
 // ========================================
 // Category Fallback Images (generic, last resort)
 // ========================================
+// All verified Wikimedia Commons URLs.
 const CATEGORY_FALLBACK_IMAGES = {
-    '\u05DE\u05D5\u05E6\u05E8\u05D9 \u05D7\u05DC\u05D1': 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=200',
-    '\u05DC\u05D7\u05DD \u05D5\u05DE\u05D0\u05E4\u05D9\u05DD': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200',
-    '\u05D1\u05D9\u05E6\u05D9\u05DD': 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200',
-    '\u05D1\u05E9\u05E8 \u05D5\u05E2\u05D5\u05E3': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200',
-    '\u05D1\u05E9\u05E8 \u05D5\u05D3\u05D2\u05D9\u05DD': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200',
-    '\u05D3\u05D2\u05D9\u05DD': 'https://images.unsplash.com/photo-1534604973900-c43ab4c2e0ab?w=200',
-    '\u05E4\u05D9\u05E8\u05D5\u05EA \u05D5\u05D9\u05E8\u05E7\u05D5\u05EA': 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=200',
-    '\u05DE\u05E9\u05E7\u05D0\u05D5\u05EA': 'https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=200',
-    '\u05E9\u05EA\u05D9\u05D9\u05D4': 'https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?w=200',
-    '\u05D7\u05D8\u05D9\u05E4\u05D9\u05DD': 'https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=200',
-    '\u05E0\u05D9\u05E7\u05D9\u05D5\u05DF': 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=200',
-    '\u05DE\u05D5\u05E6\u05E8\u05D9 \u05E0\u05D9\u05E7\u05D9\u05D5\u05DF': 'https://images.unsplash.com/photo-1563453392212-326f5e854473?w=200',
-    '\u05E4\u05E1\u05D8\u05D4 \u05D5\u05D0\u05D5\u05E8\u05D6': 'https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=200',
-    '\u05E9\u05D9\u05DE\u05D5\u05E8\u05D9\u05DD': 'https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=200',
-    '\u05E7\u05E4\u05D4 \u05D5\u05EA\u05D4': 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=200',
-    '\u05EA\u05D9\u05E0\u05D5\u05E7\u05D5\u05EA': 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=200',
-    '\u05DB\u05DC\u05DC\u05D9': 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200',
-    '\u05DE\u05D6\u05D5\u05DF \u05DB\u05DC\u05DC\u05D9': 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200',
-    '\u05D0\u05D7\u05E8': 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200',
+    '\u05DE\u05D5\u05E6\u05E8\u05D9 \u05D7\u05DC\u05D1': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Milk_glass.jpg/300px-Milk_glass.jpg',
+    '\u05DC\u05D7\u05DD \u05D5\u05DE\u05D0\u05E4\u05D9\u05DD': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Anadama_bread_%281%29.jpg/300px-Anadama_bread_%281%29.jpg',
+    '\u05D1\u05D9\u05E6\u05D9\u05DD': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Chicken_egg_2009-06-04.jpg/300px-Chicken_egg_2009-06-04.jpg',
+    '\u05D1\u05E9\u05E8 \u05D5\u05E2\u05D5\u05E3': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Standing-rib-roast.jpg/300px-Standing-rib-roast.jpg',
+    '\u05D1\u05E9\u05E8 \u05D5\u05D3\u05D2\u05D9\u05DD': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Standing-rib-roast.jpg/300px-Standing-rib-roast.jpg',
+    '\u05D3\u05D2\u05D9\u05DD': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Tilapia_fish.jpg/300px-Tilapia_fish.jpg',
+    '\u05E4\u05D9\u05E8\u05D5\u05EA \u05D5\u05D9\u05E8\u05E7\u05D5\u05EA': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Fuji_apple.jpg/300px-Fuji_apple.jpg',
+    '\u05DE\u05E9\u05E7\u05D0\u05D5\u05EA': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Orangejuice.jpg/300px-Orangejuice.jpg',
+    '\u05E9\u05EA\u05D9\u05D9\u05D4': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Orangejuice.jpg/300px-Orangejuice.jpg',
+    '\u05D7\u05D8\u05D9\u05E4\u05D9\u05DD': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Potato-Chips.jpg/300px-Potato-Chips.jpg',
+    '\u05E0\u05D9\u05E7\u05D9\u05D5\u05DF': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Soap.jpg/300px-Soap.jpg',
+    '\u05DE\u05D5\u05E6\u05E8\u05D9 \u05E0\u05D9\u05E7\u05D9\u05D5\u05DF': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Soap.jpg/300px-Soap.jpg',
+    '\u05E4\u05E1\u05D8\u05D4 \u05D5\u05D0\u05D5\u05E8\u05D6': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Spaghetti-prepared.jpg/300px-Spaghetti-prepared.jpg',
+    '\u05E9\u05D9\u05DE\u05D5\u05E8\u05D9\u05DD': 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Tomato_paste.jpg/300px-Tomato_paste.jpg',
+    '\u05E7\u05E4\u05D4 \u05D5\u05EA\u05D4': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Cup_of_coffee.jpg/300px-Cup_of_coffee.jpg',
+    '\u05EA\u05D9\u05E0\u05D5\u05E7\u05D5\u05EA': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Infant_formula.jpg/300px-Infant_formula.jpg',
+    '\u05DB\u05DC\u05DC\u05D9': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Fuji_apple.jpg/300px-Fuji_apple.jpg',
+    '\u05DE\u05D6\u05D5\u05DF \u05DB\u05DC\u05DC\u05D9': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Fuji_apple.jpg/300px-Fuji_apple.jpg',
+    '\u05D0\u05D7\u05E8': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Fuji_apple.jpg/300px-Fuji_apple.jpg',
 };
 
-const DEFAULT_FALLBACK = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200';
+const DEFAULT_FALLBACK = 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Fuji_apple.jpg/300px-Fuji_apple.jpg';
 
 // 30-day TTL in milliseconds
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
