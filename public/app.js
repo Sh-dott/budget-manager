@@ -1773,6 +1773,8 @@ function setupReceiptScanner() {
             if (file) {
                 await scanReceipt(file);
             }
+            // Reset so the same file can be scanned again
+            input.value = '';
         });
     }
 }
@@ -1837,32 +1839,52 @@ function parseReceiptText(text) {
         description: null
     };
 
+    // Normalize Hebrew gershayim: OCR may output ״ (U+05F4) or Unicode quotes instead of "
+    const normalizedText = text.replace(/[״""]/g, '"');
+
+    // Amount number pattern: digits with optional decimal (1-2 digits after separator)
+    const amtNum = '(\\d+(?:[.,]\\d{1,2})?)';
+
     // Look for total amount patterns (Hebrew and English)
+    // More specific patterns first, generic ₪ fallback last
     const amountPatterns = [
-        /סה"כ[:\s]*₪?(\d+(?:[.,]\d{2})?)/i,
-        /סה"כ לתשלום[:\s]*₪?(\d+(?:[.,]\d{2})?)/i,
-        /total[:\s]*₪?(\d+(?:[.,]\d{2})?)/i,
-        /לתשלום[:\s]*₪?(\d+(?:[.,]\d{2})?)/i,
-        /₪\s*(\d+(?:[.,]\d{2})?)/,
-        /(\d+(?:[.,]\d{2})?)\s*₪/
+        new RegExp('סה"כ\\s*לתשלום[:\\s]*₪?' + amtNum, 'i'),
+        new RegExp('סה"כ[:\\s]*₪?' + amtNum, 'i'),
+        new RegExp('לתשלום[:\\s]*₪?' + amtNum, 'i'),
+        new RegExp('total[:\\s]*₪?' + amtNum, 'i'),
     ];
 
+    // For specific total patterns, use the first match in text
     for (const pattern of amountPatterns) {
-        const match = text.match(pattern);
+        const match = normalizedText.match(pattern);
         if (match) {
             result.amount = parseFloat(match[1].replace(',', '.'));
             break;
         }
     }
 
-    // Look for date patterns
+    // Fallback: find the last ₪ amount in the text (totals appear at the bottom)
+    if (result.amount === null) {
+        const shekelPattern = /₪\s*(\d+(?:[.,]\d{1,2})?)|(\d+(?:[.,]\d{1,2})?)\s*₪/g;
+        let lastMatch = null;
+        let m;
+        while ((m = shekelPattern.exec(normalizedText)) !== null) {
+            lastMatch = m;
+        }
+        if (lastMatch) {
+            const val = lastMatch[1] || lastMatch[2];
+            result.amount = parseFloat(val.replace(',', '.'));
+        }
+    }
+
+    // Look for date patterns (use [\/\-.] as separator, exclude : to avoid matching times)
     const datePatterns = [
         /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/,
         /(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/
     ];
 
     for (const pattern of datePatterns) {
-        const match = text.match(pattern);
+        const match = normalizedText.match(pattern);
         if (match) {
             let day, month, year;
             if (match[1].length === 4) {
@@ -1874,15 +1896,23 @@ function parseReceiptText(text) {
                 month = match[2].padStart(2, '0');
                 year = match[3].length === 2 ? '20' + match[3] : match[3];
             }
-            result.date = `${year}-${month}-${day}`;
-            break;
+            // Validate date ranges
+            const m = parseInt(month), d = parseInt(day);
+            if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+                result.date = `${year}-${month}-${day}`;
+                break;
+            }
         }
     }
 
-    // Try to extract store name (first line usually)
-    const lines = text.split('\n').filter(l => l.trim());
-    if (lines.length > 0) {
-        result.description = lines[0].trim().substring(0, 50);
+    // Try to extract store name (first non-empty line with Hebrew/English letters)
+    const lines = normalizedText.split('\n').filter(l => l.trim());
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.length > 2 && /[a-zA-Z\u0590-\u05FF]/.test(trimmed)) {
+            result.description = trimmed.substring(0, 50);
+            break;
+        }
     }
 
     return result;
