@@ -78,7 +78,6 @@ async function saveTransaction(transaction) {
         const result = await response.json();
         if (result.success) {
             state.transactions.push(result.transaction);
-            updateUI();
             showToast('התנועה נשמרה בהצלחה!', 'success');
             return true;
         }
@@ -124,7 +123,6 @@ async function updateTransaction(id, transaction) {
             if (index !== -1) {
                 state.transactions[index] = result.transaction;
             }
-            updateUI();
             showToast('התנועה עודכנה בהצלחה!', 'success');
             return true;
         }
@@ -567,6 +565,9 @@ async function handleFormSubmit(e) {
         if (success) {
             state.editingTransactionId = null;
             closeModal();
+            // Defer UI update until after modal animation completes
+            // to avoid chart recreation while backdrop-filter blur is active
+            setTimeout(() => updateUI(), 100);
         }
     } catch (error) {
         console.error('Error submitting form:', error);
@@ -1830,9 +1831,16 @@ async function scanReceipt(imageFile) {
     statusEl.innerHTML = '<div class="scan-progress"><span class="loading-spinner"></span> סורק קבלה...</div>';
 
     try {
-        // Check if Tesseract is loaded
+        // Lazy-load Tesseract.js only when actually needed
         if (typeof Tesseract === 'undefined') {
-            throw new Error('Tesseract.js not loaded');
+            statusEl.innerHTML = '<div class="scan-progress"><span class="loading-spinner"></span> טוען מנוע סריקה...</div>';
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+                script.onload = resolve;
+                script.onerror = () => reject(new Error('Failed to load Tesseract.js'));
+                document.head.appendChild(script);
+            });
         }
 
         const result = await Tesseract.recognize(imageFile, 'heb+eng', {
