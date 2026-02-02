@@ -32,6 +32,15 @@ let priceSearchState = {
     viewMode: 'cards'       // cards, compact, table
 };
 
+// Debounce utility
+function debounce(fn, delay) {
+    let timer;
+    return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
 // Hebrew month names
 const hebrewMonths = [
     'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
@@ -43,29 +52,16 @@ document.addEventListener('DOMContentLoaded', () => {
     init();
 });
 
-async function init() {
-    try {
-        await loadData();
-        await loadAvatars();
-        await loadBudgets();
-        setupEventListeners();
-        setupMobileMenu();
-        setupAvatarUploads();
-        setupSearchListeners();
-        updateUI();
-    } catch (error) {
-        console.error('Error initializing app:', error);
-        showToast('שגיאה באתחול האפליקציה', 'error');
-    }
-}
-
 // API Functions
 async function loadData() {
     try {
         const response = await fetch(`${API_URL}/api/data`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        state.transactions = data.transactions || [];
-        state.categories = data.categories || { income: [], expense: [] };
+        state.transactions = Array.isArray(data.transactions) ? data.transactions : [];
+        state.categories = data.categories && typeof data.categories === 'object'
+            ? data.categories
+            : { income: [], expense: [] };
     } catch (error) {
         console.error('Error loading data:', error);
         showToast('שגיאה בטעינת נתונים', 'error');
@@ -214,24 +210,26 @@ function setupSearchListeners() {
     const searchMinAmount = document.getElementById('searchMinAmount');
     const searchMaxAmount = document.getElementById('searchMaxAmount');
 
+    const debouncedUpdate = debounce(() => updateTransactionsList(), 250);
+
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
             state.searchQuery = e.target.value;
-            updateTransactionsList();
+            debouncedUpdate();
         });
     }
 
     if (searchMinAmount) {
         searchMinAmount.addEventListener('input', (e) => {
             state.searchMinAmount = e.target.value;
-            updateTransactionsList();
+            debouncedUpdate();
         });
     }
 
     if (searchMaxAmount) {
         searchMaxAmount.addEventListener('input', (e) => {
             state.searchMaxAmount = e.target.value;
-            updateTransactionsList();
+            debouncedUpdate();
         });
     }
 }
@@ -577,19 +575,35 @@ async function handleFormSubmit(e) {
 }
 
 // UI Update Functions
+function getActiveView() {
+    const activeView = document.querySelector('.view.active');
+    return activeView ? activeView.id.replace('-view', '') : 'dashboard';
+}
+
 function updateUI() {
     try {
         updateMonthDisplay();
+        const activeView = getActiveView();
+
+        // Always update lightweight data
         updateStats();
-        updateBudgetAlerts();
-        updateBudgetProgress();
-        updateRecentTransactions();
-        updateTransactionsList();
-        updateCategories();
         updateFilterOptions();
-        updateCharts();
-        updateAnalytics();
-        updatePersonChart();
+        updateCategories();
+
+        // Only update heavy DOM/chart rendering for the active view
+        if (activeView === 'dashboard') {
+            updateBudgetAlerts();
+            updateBudgetProgress();
+            updateRecentTransactions();
+            updateCharts();
+        } else if (activeView === 'transactions') {
+            updateTransactionsList();
+        } else if (activeView === 'analytics') {
+            updateAnalytics();
+            updatePersonChart();
+        } else if (activeView === 'settings') {
+            updateBudgetSettings();
+        }
     } catch (error) {
         console.error('Error updating UI:', error);
     }
@@ -688,8 +702,12 @@ function updateRecentTransactions() {
 
 function updateTransactionsList() {
     const container = document.getElementById('allTransactions');
-    const typeFilter = document.getElementById('typeFilter').value;
-    const categoryFilter = document.getElementById('categoryFilter').value;
+    if (!container) return;
+
+    const typeFilterEl = document.getElementById('typeFilter');
+    const categoryFilterEl = document.getElementById('categoryFilter');
+    const typeFilter = typeFilterEl ? typeFilterEl.value : 'all';
+    const categoryFilter = categoryFilterEl ? categoryFilterEl.value : 'all';
 
     let transactions = getMonthTransactions();
 
@@ -785,6 +803,8 @@ function renderCategoryTags(containerId, type) {
 
 function updateFilterOptions() {
     const select = document.getElementById('categoryFilter');
+    if (!select) return;
+
     const allCategories = [...(state.categories.income || []), ...(state.categories.expense || [])];
     const uniqueCategories = [...new Set(allCategories)];
 
@@ -894,9 +914,21 @@ function updateExpensesPieChart() {
     if (charts.expensesPie) charts.expensesPie.destroy();
 
     if (labels.length === 0) {
-        ctx.parentElement.innerHTML = '<div class="empty-state"><p>אין נתונים להצגה</p></div>';
+        ctx.style.display = 'none';
+        let emptyEl = ctx.parentElement.querySelector('.chart-empty-state');
+        if (!emptyEl) {
+            emptyEl = document.createElement('div');
+            emptyEl.className = 'chart-empty-state empty-state';
+            emptyEl.innerHTML = '<p>אין נתונים להצגה</p>';
+            ctx.parentElement.appendChild(emptyEl);
+        }
+        emptyEl.style.display = '';
         return;
     }
+
+    ctx.style.display = '';
+    const emptyEl = ctx.parentElement.querySelector('.chart-empty-state');
+    if (emptyEl) emptyEl.style.display = 'none';
 
     charts.expensesPie = new Chart(ctx, {
         type: 'doughnut',
@@ -932,7 +964,6 @@ function updateAnalytics() {
     updateComparisonChart();
     updateSummaryTable();
     updatePersonStatsCards();
-    updateBudgetSettings();
 }
 
 function updateTrendChart() {
@@ -1177,9 +1208,21 @@ function updatePersonChart() {
     if (charts.person) charts.person.destroy();
 
     if (labels.length === 0) {
-        ctx.parentElement.innerHTML = '<div class="empty-state"><p>אין נתונים להצגה</p></div>';
+        ctx.style.display = 'none';
+        let emptyEl = ctx.parentElement.querySelector('.chart-empty-state');
+        if (!emptyEl) {
+            emptyEl = document.createElement('div');
+            emptyEl.className = 'chart-empty-state empty-state';
+            emptyEl.innerHTML = '<p>אין נתונים להצגה</p>';
+            ctx.parentElement.appendChild(emptyEl);
+        }
+        emptyEl.style.display = '';
         return;
     }
+
+    ctx.style.display = '';
+    const emptyEl = ctx.parentElement.querySelector('.chart-empty-state');
+    if (emptyEl) emptyEl.style.display = 'none';
 
     charts.person = new Chart(ctx, {
         type: 'doughnut',
@@ -2592,7 +2635,7 @@ function buildCardsView(products) {
 
                 <div class="product-main-content" onclick="toggleProductDetails(this.closest('.product-card-improved'))" style="cursor: pointer;">
                     <div class="product-image-container">
-                        <img src="${product.image}" alt="${product.name}" class="product-image-lg"
+                        <img src="${product.image}" alt="${product.name}" class="product-image-lg" loading="lazy"
                              onerror="this.src=getCategoryFallbackImage('${(product.category || '').replace(/'/g, "\\'")}', '${(product.name || '').replace(/'/g, "\\'")}'); this.onerror=null;">
                     </div>
                     <div class="product-info-section">
@@ -2658,7 +2701,7 @@ function buildCompactView(products) {
             <div class="product-card ${idx === 0 ? 'featured' : ''}">
                 <div class="product-card-header" onclick="toggleProductDetails(this)">
                     <div class="product-info">
-                        <img src="${product.image}" alt="${product.name}" class="product-image"
+                        <img src="${product.image}" alt="${product.name}" class="product-image" loading="lazy"
                              onerror="this.src=getCategoryFallbackImage('${(product.category || '').replace(/'/g, "\\'")}', '${(product.name || '').replace(/'/g, "\\'")}'); this.onerror=null;">
                         <div class="product-details">
                             <span class="product-name">${product.name}</span>
@@ -2715,7 +2758,7 @@ function buildTableView(products) {
         return `
             <tr>
                 <td>
-                    <img src="${product.image}" alt="" class="product-img-small" onerror="this.src=getCategoryFallbackImage('${(product.category || '').replace(/'/g, "\\'")}', '${(product.name || '').replace(/'/g, "\\'")}'); this.onerror=null;">
+                    <img src="${product.image}" alt="" class="product-img-small" loading="lazy" onerror="this.src=getCategoryFallbackImage('${(product.category || '').replace(/'/g, "\\'")}', '${(product.name || '').replace(/'/g, "\\'")}'); this.onerror=null;">
                 </td>
                 <td>${product.name}</td>
                 <td>${product.category || '-'}</td>
@@ -2838,8 +2881,6 @@ async function addProductFromChain(productName, chainName, price) {
 // Initialize New Features on Load
 // ========================================
 
-// Override init to include new features
-const originalInit = init;
 async function init() {
     try {
         await loadData();

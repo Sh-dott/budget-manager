@@ -1467,6 +1467,12 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 }
 
 @media (max-width: 768px) {
+    /* Disable heavy background animations on mobile to save memory/battery */
+    .bg-blur {
+        animation: none !important;
+        opacity: 0.25;
+    }
+
     /* Hide desktop sidebar, show mobile nav */
     .sidebar {
         display: none;

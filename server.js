@@ -251,7 +251,12 @@ app.delete('/api/categories/:type/:name', async (req, res) => {
 app.get('/api/avatars', async (req, res) => {
     try {
         const avatarsDoc = await db.collection('settings').findOne({ _id: 'avatars' });
-        res.json(avatarsDoc || { Shai: '', Gal: '' });
+        if (avatarsDoc) {
+            const { _id, ...avatars } = avatarsDoc;
+            res.json(avatars);
+        } else {
+            res.json({ Shai: '', Gal: '', Chubby: '' });
+        }
     } catch (error) {
         console.error('Error fetching avatars:', error);
         res.status(500).json({ error: 'Failed to fetch avatars' });
@@ -281,7 +286,12 @@ app.post('/api/avatars/:person', async (req, res) => {
 app.get('/api/budgets', async (req, res) => {
     try {
         const budgetsDoc = await db.collection('settings').findOne({ _id: 'budgets' });
-        res.json(budgetsDoc || { _id: 'budgets' });
+        if (budgetsDoc) {
+            const { _id, ...budgets } = budgetsDoc;
+            res.json(budgets);
+        } else {
+            res.json({});
+        }
     } catch (error) {
         console.error('Error fetching budgets:', error);
         res.status(500).json({ error: 'Failed to fetch budgets' });
@@ -750,6 +760,9 @@ app.post('/api/shopping-lists/:id/items', async (req, res) => {
             { returnDocument: 'after' }
         );
 
+        if (!result) {
+            return res.status(404).json({ success: false, error: 'List not found' });
+        }
         res.json({ success: true, list: result });
     } catch (error) {
         console.error('Error adding item:', error);
@@ -765,6 +778,9 @@ app.put('/api/shopping-lists/:id/items/:itemId', async (req, res) => {
 
         // Get current list to find the item
         const list = await db.collection('shoppingLists').findOne({ _id: listId });
+        if (!list) {
+            return res.status(404).json({ success: false, error: 'List not found' });
+        }
         const itemIndex = list.items.findIndex(i => i.id === itemId);
 
         if (itemIndex === -1) {
@@ -798,6 +814,9 @@ app.delete('/api/shopping-lists/:id/items/:itemId', async (req, res) => {
         const itemId = parseInt(req.params.itemId);
 
         const list = await db.collection('shoppingLists').findOne({ _id: listId });
+        if (!list) {
+            return res.status(404).json({ success: false, error: 'List not found' });
+        }
         const item = list.items.find(i => i.id === itemId);
         const priceReduction = item ? (item.estimatedPrice || 0) * (item.quantity || 1) : 0;
 
@@ -2136,16 +2155,22 @@ app.get('/api/products', async (req, res) => {
             success: true,
             count: products.length,
             categories,
-            products: products.map(p => ({
-                barcode: p.barcode,
-                name: p.name,
-                category: p.category,
-                manufacturer: p.manufacturer,
-                image: p.image,
-                prices: p.prices,
-                cheapestPrice: p.prices?.reduce((min, pr) => pr.price < min ? pr.price : min, Infinity),
-                cheapestChain: p.prices?.reduce((cheapest, pr) => pr.price < (cheapest?.price || Infinity) ? pr : cheapest, null)?.chainName
-            }))
+            products: products.map(p => {
+                const prices = Array.isArray(p.prices) && p.prices.length > 0 ? p.prices : [];
+                const cheapest = prices.length > 0
+                    ? prices.reduce((min, pr) => (pr.price < min.price ? pr : min), prices[0])
+                    : null;
+                return {
+                    barcode: p.barcode,
+                    name: p.name,
+                    category: p.category,
+                    manufacturer: p.manufacturer,
+                    image: p.image,
+                    prices,
+                    cheapestPrice: cheapest ? cheapest.price : null,
+                    cheapestChain: cheapest ? cheapest.chainName : null
+                };
+            })
         });
     } catch (error) {
         console.error('Products list error:', error);
