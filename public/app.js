@@ -1371,54 +1371,10 @@ function setupMobileMenu() {
         });
     });
 
-    // Mobile "more" menu
-    const moreBtn = document.getElementById('mobileMoreBtn');
-    const moreMenu = document.getElementById('mobileMoreMenu');
-    const moreBackdrop = document.getElementById('mobileMoreBackdrop');
-
-    if (moreBtn && moreMenu) {
-        moreBtn.addEventListener('click', () => {
-            moreMenu.classList.toggle('open');
-        });
-
-        if (moreBackdrop) {
-            moreBackdrop.addEventListener('click', () => {
-                moreMenu.classList.remove('open');
-            });
-        }
-
-        // More menu nav items
-        document.querySelectorAll('.mobile-more-item[data-view]').forEach(item => {
-            item.addEventListener('click', () => {
-                const viewId = item.dataset.view;
-
-                // Clear active on bottom nav
-                mobileNavItems.forEach(i => i.classList.remove('active'));
-                // Mark "more" as active
-                moreBtn.classList.add('active');
-
-                // Update desktop nav
-                document.querySelectorAll('.nav-item').forEach(nav => {
-                    nav.classList.toggle('active', nav.dataset.view === viewId);
-                });
-
-                // Show the view
-                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-                document.getElementById(`${viewId}-view`).classList.add('active');
-
-                moreMenu.classList.remove('open');
-                updateUI();
-            });
-        });
-
-        // "Add transaction" inside more menu
-        const mobileMoreAddBtn = document.getElementById('mobileMoreAddBtn');
-        if (mobileMoreAddBtn) {
-            mobileMoreAddBtn.addEventListener('click', () => {
-                moreMenu.classList.remove('open');
-                openModal();
-            });
-        }
+    // Mobile add button
+    const mobileAddBtn = document.getElementById('mobileAddBtn');
+    if (mobileAddBtn) {
+        mobileAddBtn.addEventListener('click', () => openModal());
     }
 
     // Sync desktop nav clicks with mobile nav
@@ -1428,11 +1384,6 @@ function setupMobileMenu() {
             mobileNavItems.forEach(mobileItem => {
                 mobileItem.classList.toggle('active', mobileItem.dataset.view === viewId);
             });
-            // Clear "more" active if switching to a direct nav item
-            if (moreBtn) {
-                const directViews = Array.from(mobileNavItems).map(i => i.dataset.view);
-                moreBtn.classList.toggle('active', !directViews.includes(viewId));
-            }
         });
     });
 }
