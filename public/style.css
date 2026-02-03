@@ -4223,3 +4223,339 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
         width: 100%;
     }
 }
+
+/* ========================================
+   Tasks & Calendar
+   ======================================== */
+
+.tasks-calendar-card {
+    margin-bottom: 1.5rem;
+}
+
+.calendar-grid {
+    padding: 0.5rem;
+}
+
+.calendar-day-names {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.5rem;
+}
+
+.calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    position: relative;
+    font-size: 0.9rem;
+    gap: 2px;
+}
+
+.calendar-day:hover:not(.empty) {
+    background: var(--bg-hover);
+}
+
+.calendar-day.empty {
+    cursor: default;
+}
+
+.calendar-day.today {
+    border: 2px solid var(--primary);
+}
+
+.calendar-day.today .day-number {
+    color: var(--primary-light);
+    font-weight: 700;
+}
+
+.calendar-day.selected {
+    background: var(--gradient-primary);
+    color: white;
+    box-shadow: var(--shadow-glow-sm);
+}
+
+.calendar-day.selected .day-number {
+    color: white;
+    font-weight: 700;
+}
+
+.calendar-day.has-tasks .day-number {
+    font-weight: 600;
+}
+
+.day-number {
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+.task-dots {
+    display: flex;
+    gap: 3px;
+    position: absolute;
+    bottom: 4px;
+}
+
+.task-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+}
+
+.task-dot.dot-low {
+    background: var(--success);
+}
+
+.task-dot.dot-medium {
+    background: var(--warning);
+}
+
+.task-dot.dot-high {
+    background: var(--danger);
+}
+
+/* Task Day Card */
+.tasks-day-card {
+    margin-bottom: 1.5rem;
+}
+
+.tasks-add-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+}
+
+/* Task Form */
+.task-form {
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+    background: var(--bg-glass);
+}
+
+.task-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: border-color var(--transition-fast);
+}
+
+.task-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.task-textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.priority-selector {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.priority-btn {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: center;
+}
+
+.priority-btn.priority-low.active {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: var(--success);
+    color: var(--success);
+}
+
+.priority-btn.priority-medium.active {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: var(--warning);
+    color: var(--warning);
+}
+
+.priority-btn.priority-high.active {
+    background: rgba(244, 63, 94, 0.2);
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.task-form-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-start;
+    margin-top: 0.5rem;
+}
+
+.task-form-actions .btn-primary,
+.task-form-actions .btn-secondary {
+    padding: 0.6rem 1.5rem;
+    font-size: 0.85rem;
+}
+
+/* Task Items */
+.tasks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.task-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-glass);
+    transition: all var(--transition-fast);
+}
+
+.task-item:hover {
+    background: var(--bg-hover);
+}
+
+.task-item.task-completed {
+    opacity: 0.5;
+}
+
+.task-item.task-completed .task-item-title {
+    text-decoration: line-through;
+}
+
+.task-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.task-item-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.task-item-title {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.priority-badge {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.priority-badge.priority-low {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+}
+
+.priority-badge.priority-medium {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
+}
+
+.priority-badge.priority-high {
+    background: rgba(244, 63, 94, 0.15);
+    color: var(--danger);
+}
+
+.task-item-note {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.task-item-actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.task-action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0.25rem;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+    opacity: 0.6;
+}
+
+.task-action-btn:hover {
+    background: var(--bg-hover);
+    opacity: 1;
+}
+
+/* Tasks Mobile */
+@media (max-width: 768px) {
+    .calendar-day {
+        font-size: 0.8rem;
+    }
+
+    .day-number {
+        font-size: 0.75rem;
+    }
+
+    .task-dots {
+        bottom: 2px;
+    }
+
+    .task-dot {
+        width: 4px;
+        height: 4px;
+    }
+
+    .tasks-day-card .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .tasks-add-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .priority-selector {
+        flex-wrap: nowrap;
+    }
+
+    .task-item {
+        padding: 0.625rem 0.75rem;
+    }
+}

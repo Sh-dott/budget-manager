@@ -48,6 +48,10 @@
                     <span class="nav-icon">🛒</span>
                     <span>רשימות קניות</span>
                 </li>
+                <li class="nav-item" data-view="tasks">
+                    <span class="nav-icon">📋</span>
+                    <span>משימות</span>
+                </li>
                 <li class="nav-item" data-view="settings">
                     <span class="nav-icon">⚙️</span>
                     <span>הגדרות</span>
@@ -518,6 +522,75 @@
                 </div>
             </section>
 
+            <!-- Tasks View -->
+            <section class="view" id="tasks-view">
+                <!-- Calendar Card -->
+                <div class="card tasks-calendar-card">
+                    <div class="card-header">
+                        <h3>📅 לוח משימות</h3>
+                    </div>
+                    <div class="calendar-grid">
+                        <div class="calendar-day-names">
+                            <span>א</span>
+                            <span>ב</span>
+                            <span>ג</span>
+                            <span>ד</span>
+                            <span>ה</span>
+                            <span>ו</span>
+                            <span>ש</span>
+                        </div>
+                        <div class="calendar-days" id="calendarDays"></div>
+                    </div>
+                </div>
+
+                <!-- Selected Day Card -->
+                <div class="card tasks-day-card">
+                    <div class="card-header">
+                        <h3 id="selectedDayTitle">בחר יום מהלוח</h3>
+                        <button class="add-btn tasks-add-btn" id="addTaskBtn" onclick="openTaskForm()" style="display: none;">
+                            <span class="add-icon">+</span>
+                            <span>משימה חדשה</span>
+                        </button>
+                    </div>
+
+                    <!-- Inline Task Form -->
+                    <div class="task-form" id="taskForm" style="display: none;">
+                        <div class="form-group">
+                            <label>כותרת</label>
+                            <input type="text" id="taskTitle" placeholder="שם המשימה..." class="task-input">
+                        </div>
+                        <div class="form-group">
+                            <label>תאריך</label>
+                            <input type="date" id="taskDate" class="task-input">
+                        </div>
+                        <div class="form-group">
+                            <label>הערות</label>
+                            <textarea id="taskNote" placeholder="הערות נוספות..." class="task-input task-textarea" rows="2"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>עדיפות</label>
+                            <div class="priority-selector">
+                                <button type="button" class="priority-btn priority-low" data-priority="low" onclick="setTaskPriority('low')">נמוכה</button>
+                                <button type="button" class="priority-btn priority-medium active" data-priority="medium" onclick="setTaskPriority('medium')">בינונית</button>
+                                <button type="button" class="priority-btn priority-high" data-priority="high" onclick="setTaskPriority('high')">גבוהה</button>
+                            </div>
+                        </div>
+                        <div class="task-form-actions">
+                            <button type="button" class="btn-secondary" onclick="closeTaskForm()">ביטול</button>
+                            <button type="button" class="btn-primary" onclick="saveTask()">שמור</button>
+                        </div>
+                    </div>
+
+                    <!-- Task List -->
+                    <div class="tasks-list" id="tasksList">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📋</div>
+                            <p>בחר יום מהלוח כדי לראות ולהוסיף משימות</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Categories View -->
             <section class="view" id="categories-view">
                 <div class="categories-grid">
@@ -562,9 +635,9 @@
                 <span class="mobile-nav-icon">🛒</span>
                 <span>קניות</span>
             </button>
-            <button class="mobile-nav-item" data-view="settings">
-                <span class="mobile-nav-icon">⚙️</span>
-                <span>הגדרות</span>
+            <button class="mobile-nav-item" data-view="tasks">
+                <span class="mobile-nav-icon">📋</span>
+                <span>משימות</span>
             </button>
         </nav>
     </div>

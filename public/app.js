@@ -23,6 +23,14 @@ let state = {
     searchMaxAmount: ''
 };
 
+// Tasks State
+let tasksState = {
+    tasks: [],
+    selectedDate: null,
+    editingTaskId: null,
+    selectedPriority: 'medium'
+};
+
 // Price Search State
 let priceSearchState = {
     originalResults: null,  // Store original API results
@@ -604,6 +612,8 @@ function updateUI() {
             updatePersonChart();
         } else if (activeView === 'settings') {
             updateBudgetSettings();
+        } else if (activeView === 'tasks') {
+            loadTasks().then(() => renderCalendar());
         }
     } catch (error) {
         console.error('Error updating UI:', error);
@@ -2895,6 +2905,7 @@ async function init() {
         await loadAvatars();
         await loadBudgets();
         await loadShoppingLists();
+        await loadTasks();
         setupEventListeners();
         setupMobileMenu();
         setupAvatarUploads();
@@ -2908,6 +2919,275 @@ async function init() {
     } catch (error) {
         console.error('Error initializing app:', error);
         showToast('שגיאה באתחול האפליקציה', 'error');
+    }
+}
+
+// ========================================
+// Tasks & Calendar
+// ========================================
+
+async function loadTasks() {
+    try {
+        const month = state.currentMonth.getMonth();
+        const year = state.currentMonth.getFullYear();
+        const response = await fetch(`${API_URL}/api/tasks?month=${month}&year=${year}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        tasksState.tasks = await response.json();
+    } catch (error) {
+        console.error('Error loading tasks:', error);
+    }
+}
+
+function renderCalendar() {
+    const container = document.getElementById('calendarDays');
+    if (!container) return;
+
+    const year = state.currentMonth.getFullYear();
+    const month = state.currentMonth.getMonth();
+    const firstDay = new Date(year, month, 1).getDay(); // 0=Sunday
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    let html = '';
+
+    // Empty cells before first day
+    for (let i = 0; i < firstDay; i++) {
+        html += '<div class="calendar-day empty"></div>';
+    }
+
+    // Day cells
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const dayTasks = tasksState.tasks.filter(t => t.date === dateStr);
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === tasksState.selectedDate;
+
+        let classes = 'calendar-day';
+        if (isToday) classes += ' today';
+        if (isSelected) classes += ' selected';
+        if (dayTasks.length > 0) classes += ' has-tasks';
+
+        let dots = '';
+        if (dayTasks.length > 0) {
+            const dotColors = dayTasks.slice(0, 3).map(t => {
+                if (t.priority === 'high') return 'dot-high';
+                if (t.priority === 'low') return 'dot-low';
+                return 'dot-medium';
+            });
+            dots = '<div class="task-dots">' + dotColors.map(c => `<span class="task-dot ${c}"></span>`).join('') + '</div>';
+        }
+
+        html += `<div class="${classes}" onclick="selectCalendarDay('${dateStr}')">
+            <span class="day-number">${d}</span>
+            ${dots}
+        </div>`;
+    }
+
+    container.innerHTML = html;
+
+    // If a day is already selected, re-render its tasks
+    if (tasksState.selectedDate) {
+        renderDayTasks();
+    }
+}
+
+function selectCalendarDay(dateStr) {
+    tasksState.selectedDate = dateStr;
+
+    // Update selected highlight
+    document.querySelectorAll('.calendar-day').forEach(el => el.classList.remove('selected'));
+    const clicked = document.querySelector(`.calendar-day[onclick*="${dateStr}"]`);
+    if (clicked) clicked.classList.add('selected');
+
+    // Update title
+    const date = new Date(dateStr + 'T00:00:00');
+    const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+    const dayName = dayNames[date.getDay()];
+    document.getElementById('selectedDayTitle').textContent = `יום ${dayName}, ${date.getDate()} ב${hebrewMonths[date.getMonth()]}`;
+
+    // Show add button
+    document.getElementById('addTaskBtn').style.display = '';
+
+    renderDayTasks();
+}
+
+function renderDayTasks() {
+    const container = document.getElementById('tasksList');
+    if (!container || !tasksState.selectedDate) return;
+
+    const dayTasks = tasksState.tasks.filter(t => t.date === tasksState.selectedDate);
+
+    if (dayTasks.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">✅</div>
+                <p>אין משימות ליום זה</p>
+                <button class="add-category-btn" onclick="openTaskForm()">הוסף משימה</button>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = dayTasks.map(task => {
+        const priorityLabel = task.priority === 'high' ? 'גבוהה' : task.priority === 'low' ? 'נמוכה' : 'בינונית';
+        const priorityClass = `priority-${task.priority || 'medium'}`;
+        const completedClass = task.completed ? 'task-completed' : '';
+
+        return `
+        <div class="task-item ${completedClass}">
+            <label class="item-checkbox">
+                <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
+                <span class="checkmark"></span>
+            </label>
+            <div class="task-item-content">
+                <div class="task-item-header">
+                    <span class="task-item-title">${task.title}</span>
+                    <span class="priority-badge ${priorityClass}">${priorityLabel}</span>
+                </div>
+                ${task.note ? `<div class="task-item-note">${task.note}</div>` : ''}
+            </div>
+            <div class="task-item-actions">
+                <button class="task-action-btn" onclick="editTask(${task.id})" title="ערוך">✏️</button>
+                <button class="task-action-btn" onclick="deleteTask(${task.id})" title="מחק">🗑️</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function openTaskForm(prefillDate) {
+    const form = document.getElementById('taskForm');
+    form.style.display = 'block';
+
+    // Set date
+    const dateInput = document.getElementById('taskDate');
+    dateInput.value = prefillDate || tasksState.selectedDate || new Date().toISOString().split('T')[0];
+
+    // Reset fields if not editing
+    if (!tasksState.editingTaskId) {
+        document.getElementById('taskTitle').value = '';
+        document.getElementById('taskNote').value = '';
+        setTaskPriority('medium');
+    }
+
+    // Focus title
+    setTimeout(() => document.getElementById('taskTitle').focus(), 100);
+}
+
+function closeTaskForm() {
+    document.getElementById('taskForm').style.display = 'none';
+    tasksState.editingTaskId = null;
+    tasksState.selectedPriority = 'medium';
+}
+
+function setTaskPriority(priority) {
+    tasksState.selectedPriority = priority;
+    document.querySelectorAll('.priority-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.priority === priority);
+    });
+}
+
+async function saveTask() {
+    const title = document.getElementById('taskTitle').value.trim();
+    const date = document.getElementById('taskDate').value;
+    const note = document.getElementById('taskNote').value.trim();
+
+    if (!title) {
+        showToast('נא להזין כותרת למשימה', 'error');
+        return;
+    }
+    if (!date) {
+        showToast('נא לבחור תאריך', 'error');
+        return;
+    }
+
+    try {
+        if (tasksState.editingTaskId) {
+            // Update existing task
+            const response = await fetch(`${API_URL}/api/tasks/${tasksState.editingTaskId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, date, note, priority: tasksState.selectedPriority })
+            });
+            const result = await response.json();
+            if (result.success) {
+                const idx = tasksState.tasks.findIndex(t => t.id === tasksState.editingTaskId);
+                if (idx !== -1) tasksState.tasks[idx] = result.task;
+                showToast('המשימה עודכנה', 'success');
+            }
+        } else {
+            // Create new task
+            const response = await fetch(`${API_URL}/api/tasks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, date, note, priority: tasksState.selectedPriority })
+            });
+            const result = await response.json();
+            if (result.success) {
+                tasksState.tasks.push(result.task);
+                showToast('המשימה נוספה', 'success');
+            }
+        }
+
+        closeTaskForm();
+        // Update selected date to match the saved task's date
+        tasksState.selectedDate = date;
+        renderCalendar();
+    } catch (error) {
+        console.error('Error saving task:', error);
+        showToast('שגיאה בשמירת המשימה', 'error');
+    }
+}
+
+async function toggleTask(id) {
+    const task = tasksState.tasks.find(t => t.id === id);
+    if (!task) return;
+
+    try {
+        const response = await fetch(`${API_URL}/api/tasks/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ completed: !task.completed })
+        });
+        const result = await response.json();
+        if (result.success) {
+            const idx = tasksState.tasks.findIndex(t => t.id === id);
+            if (idx !== -1) tasksState.tasks[idx] = result.task;
+            renderDayTasks();
+        }
+    } catch (error) {
+        console.error('Error toggling task:', error);
+        showToast('שגיאה בעדכון המשימה', 'error');
+    }
+}
+
+function editTask(id) {
+    const task = tasksState.tasks.find(t => t.id === id);
+    if (!task) return;
+
+    tasksState.editingTaskId = id;
+    document.getElementById('taskTitle').value = task.title;
+    document.getElementById('taskDate').value = task.date;
+    document.getElementById('taskNote').value = task.note || '';
+    setTaskPriority(task.priority || 'medium');
+    openTaskForm(task.date);
+}
+
+async function deleteTask(id) {
+    if (!confirm('האם למחוק את המשימה?')) return;
+
+    try {
+        const response = await fetch(`${API_URL}/api/tasks/${id}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        if (result.success) {
+            tasksState.tasks = tasksState.tasks.filter(t => t.id !== id);
+            renderCalendar();
+            showToast('המשימה נמחקה', 'success');
+        }
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        showToast('שגיאה במחיקת המשימה', 'error');
     }
 }
 
@@ -2939,3 +3219,11 @@ window.clearPriceFilters = clearPriceFilters;
 window.setSortOption = setSortOption;
 window.setViewOption = setViewOption;
 window.removeChainFilter = removeChainFilter;
+window.selectCalendarDay = selectCalendarDay;
+window.openTaskForm = openTaskForm;
+window.closeTaskForm = closeTaskForm;
+window.setTaskPriority = setTaskPriority;
+window.saveTask = saveTask;
+window.toggleTask = toggleTask;
+window.editTask = editTask;
+window.deleteTask = deleteTask;

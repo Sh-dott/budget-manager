@@ -64,6 +64,16 @@ async function connectDB() {
                 console.log('Products index note:', indexError.message);
             }
         }
+
+        // Initialize tasks collection index
+        try {
+            await db.collection('tasks').createIndex({ date: 1 });
+            console.log('Tasks collection index created');
+        } catch (indexError) {
+            if (indexError.code !== 85 && indexError.code !== 86) {
+                console.log('Tasks index note:', indexError.message);
+            }
+        }
     } catch (error) {
         console.error('MongoDB connection error:', error);
         process.exit(1);
@@ -832,6 +842,83 @@ app.delete('/api/shopping-lists/:id/items/:itemId', async (req, res) => {
     } catch (error) {
         console.error('Error deleting item:', error);
         res.status(500).json({ success: false, error: 'Failed to delete item' });
+    }
+});
+
+// ========================================
+// Tasks API
+// ========================================
+
+// Get tasks for a month
+app.get('/api/tasks', async (req, res) => {
+    try {
+        const { month, year } = req.query;
+        let query = {};
+
+        if (month !== undefined && year !== undefined) {
+            const m = parseInt(month);
+            const y = parseInt(year);
+            const startDate = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+            const endDay = new Date(y, m + 1, 0).getDate();
+            const endDate = `${y}-${String(m + 1).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
+            query.date = { $gte: startDate, $lte: endDate };
+        }
+
+        const tasks = await db.collection('tasks').find(query).sort({ date: 1 }).toArray();
+        res.json(tasks);
+    } catch (error) {
+        console.error('Error fetching tasks:', error);
+        res.status(500).json({ error: 'Failed to fetch tasks' });
+    }
+});
+
+// Create task
+app.post('/api/tasks', async (req, res) => {
+    try {
+        const task = {
+            id: Date.now(),
+            title: req.body.title,
+            date: req.body.date,
+            note: req.body.note || '',
+            priority: req.body.priority || 'medium',
+            completed: false,
+            createdAt: new Date().toISOString()
+        };
+
+        await db.collection('tasks').insertOne(task);
+        res.json({ success: true, task });
+    } catch (error) {
+        console.error('Error creating task:', error);
+        res.status(500).json({ success: false, error: 'Failed to create task' });
+    }
+});
+
+// Update task
+app.put('/api/tasks/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const updates = { ...req.body, updatedAt: new Date().toISOString() };
+        delete updates._id;
+        delete updates.id;
+
+        await db.collection('tasks').updateOne({ id }, { $set: updates });
+        const task = await db.collection('tasks').findOne({ id });
+        res.json({ success: true, task });
+    } catch (error) {
+        console.error('Error updating task:', error);
+        res.status(500).json({ success: false, error: 'Failed to update task' });
+    }
+});
+
+// Delete task
+app.delete('/api/tasks/:id', async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        await db.collection('tasks').deleteOne({ id });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        res.status(500).json({ success: false, error: 'Failed to delete task' });
     }
 });
 
