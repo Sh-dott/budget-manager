@@ -628,9 +628,6 @@
                 <span class="mobile-nav-icon">💳</span>
                 <span>תנועות</span>
             </button>
-            <button class="mobile-nav-item add-fab" id="mobileAddBtn">
-                <span class="mobile-nav-icon">+</span>
-            </button>
             <button class="mobile-nav-item" data-view="shopping">
                 <span class="mobile-nav-icon">🛒</span>
                 <span>קניות</span>
@@ -639,7 +636,34 @@
                 <span class="mobile-nav-icon">📋</span>
                 <span>משימות</span>
             </button>
+            <button class="mobile-nav-item" id="mobileMoreBtn">
+                <span class="mobile-nav-icon">☰</span>
+                <span>עוד</span>
+            </button>
         </nav>
+
+        <!-- Mobile More Menu -->
+        <div class="mobile-more-menu" id="mobileMoreMenu">
+            <div class="mobile-more-backdrop" id="mobileMoreBackdrop"></div>
+            <div class="mobile-more-panel">
+                <button class="mobile-more-item" data-view="analytics">
+                    <span class="mobile-more-icon">📈</span>
+                    <span>ניתוח והשוואות</span>
+                </button>
+                <button class="mobile-more-item" data-view="categories">
+                    <span class="mobile-more-icon">🏷️</span>
+                    <span>קטגוריות</span>
+                </button>
+                <button class="mobile-more-item" data-view="settings">
+                    <span class="mobile-more-icon">⚙️</span>
+                    <span>הגדרות</span>
+                </button>
+                <button class="mobile-more-item" id="mobileMoreAddBtn">
+                    <span class="mobile-more-icon">➕</span>
+                    <span>הוסף תנועה</span>
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Add Transaction Modal -->

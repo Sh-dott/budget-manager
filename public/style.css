@@ -1451,6 +1451,89 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     font-weight: 300;
 }
 
+/* Mobile More Menu */
+.mobile-more-menu {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.mobile-more-menu.open {
+    pointer-events: auto;
+    opacity: 1;
+}
+
+.mobile-more-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.mobile-more-panel {
+    position: absolute;
+    bottom: 70px;
+    left: 0.75rem;
+    right: 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    transform: translateY(10px);
+    transition: transform 0.2s ease;
+    box-shadow: var(--shadow-lg);
+}
+
+.mobile-more-menu.open .mobile-more-panel {
+    transform: translateY(0);
+}
+
+.mobile-more-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    transition: background var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.mobile-more-item:hover,
+.mobile-more-item:active {
+    background: var(--bg-hover);
+}
+
+.mobile-more-icon {
+    font-size: 1.25rem;
+    width: 28px;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .mobile-more-menu {
+        display: block;
+    }
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
     .stats-grid {
@@ -1507,8 +1590,8 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
         font-size: 1.125rem;
     }
 
-    /* Hide desktop add button on mobile */
-    .add-btn {
+    /* Hide desktop topbar add button on mobile */
+    .topbar .add-btn {
         display: none;
     }
 
@@ -4547,6 +4630,7 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     }
 
     .tasks-add-btn {
+        display: flex;
         width: 100%;
         justify-content: center;
     }
