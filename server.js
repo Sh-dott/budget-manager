@@ -520,9 +520,10 @@ app.post('/api/insights/daily-tips', async (req, res) => {
             tip = tips[topCategory[0]] || `💡 הקטגוריה הגבוהה ביותר שלך השבוע: ${topCategory[0]} (₪${topCategory[1].toLocaleString()}). נסה להגדיר תקציב לקטגוריה זו.`;
         }
 
-        // Cache for 24 hours
+        // Cache until midnight
         const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + 24);
+        expiresAt.setDate(expiresAt.getDate() + 1);
+        expiresAt.setHours(0, 0, 0, 0);
         await db.collection('cache').updateOne(
             { _id: 'daily-tip' },
             { $set: { tip, expiresAt, createdAt: new Date() } },

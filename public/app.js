@@ -1642,12 +1642,12 @@ async function loadDailyTipsWidget() {
     const container = document.getElementById('dailyTipContent');
     if (!container) return;
 
-    // Check localStorage cache first (24h TTL)
+    // Check localStorage cache first (expires at midnight)
     const cached = localStorage.getItem('dailyTip');
     if (cached) {
-        const { tip, timestamp } = JSON.parse(cached);
-        const age = Date.now() - timestamp;
-        if (age < 24 * 60 * 60 * 1000) { // 24 hours
+        const { tip, date } = JSON.parse(cached);
+        const today = new Date().toISOString().split('T')[0];
+        if (date === today) {
             container.innerHTML = `<p class="tip-text">${tip}</p>`;
             return;
         }
@@ -1667,7 +1667,7 @@ async function loadDailyTipsWidget() {
             // Cache in localStorage
             localStorage.setItem('dailyTip', JSON.stringify({
                 tip: result.tip,
-                timestamp: Date.now()
+                date: new Date().toISOString().split('T')[0]
             }));
         } else {
             container.innerHTML = '<p class="tip-error">לא ניתן לטעון טיפ</p>';
