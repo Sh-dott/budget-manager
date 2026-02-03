@@ -3028,10 +3028,25 @@ function renderDayTasks() {
         return;
     }
 
+    const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
     container.innerHTML = dayTasks.map(task => {
         const priorityLabel = task.priority === 'high' ? 'גבוהה' : task.priority === 'low' ? 'נמוכה' : 'בינונית';
         const priorityClass = `priority-${task.priority || 'medium'}`;
         const completedClass = task.completed ? 'task-completed' : '';
+
+        // Build info preview: day, time, note
+        const taskDate = new Date(task.date + 'T00:00:00');
+        const dayName = dayNames[taskDate.getDay()];
+        const dateFormatted = `${taskDate.getDate()}/${taskDate.getMonth() + 1}`;
+        const timeStr = task.time ? task.time : '';
+
+        let infoParts = [];
+        infoParts.push(`📅 יום ${dayName} ${dateFormatted}`);
+        if (timeStr) infoParts.push(`🕐 ${timeStr}`);
+        if (task.note) infoParts.push(`📝 ${task.note}`);
+
+        const infoPreview = infoParts.join('  ·  ');
 
         return `
         <div class="task-item ${completedClass}">
@@ -3044,7 +3059,7 @@ function renderDayTasks() {
                     <span class="task-item-title">${task.title}</span>
                     <span class="priority-badge ${priorityClass}">${priorityLabel}</span>
                 </div>
-                ${task.note ? `<div class="task-item-note">${task.note}</div>` : ''}
+                <div class="task-item-info">${infoPreview}</div>
             </div>
             <div class="task-item-actions">
                 <button class="task-action-btn" onclick="editTask(${task.id})" title="ערוך">✏️</button>
@@ -3065,6 +3080,7 @@ function openTaskForm(prefillDate) {
     // Reset fields if not editing
     if (!tasksState.editingTaskId) {
         document.getElementById('taskTitle').value = '';
+        document.getElementById('taskTime').value = '';
         document.getElementById('taskNote').value = '';
         setTaskPriority('medium');
     }
@@ -3089,6 +3105,7 @@ function setTaskPriority(priority) {
 async function saveTask() {
     const title = document.getElementById('taskTitle').value.trim();
     const date = document.getElementById('taskDate').value;
+    const time = document.getElementById('taskTime').value;
     const note = document.getElementById('taskNote').value.trim();
 
     if (!title) {
@@ -3106,7 +3123,7 @@ async function saveTask() {
             const response = await fetch(`${API_URL}/api/tasks/${tasksState.editingTaskId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, date, note, priority: tasksState.selectedPriority })
+                body: JSON.stringify({ title, date, time, note, priority: tasksState.selectedPriority })
             });
             const result = await response.json();
             if (result.success) {
@@ -3119,7 +3136,7 @@ async function saveTask() {
             const response = await fetch(`${API_URL}/api/tasks`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, date, note, priority: tasksState.selectedPriority })
+                body: JSON.stringify({ title, date, time, note, priority: tasksState.selectedPriority })
             });
             const result = await response.json();
             if (result.success) {
@@ -3167,6 +3184,7 @@ function editTask(id) {
     tasksState.editingTaskId = id;
     document.getElementById('taskTitle').value = task.title;
     document.getElementById('taskDate').value = task.date;
+    document.getElementById('taskTime').value = task.time || '';
     document.getElementById('taskNote').value = task.note || '';
     setTaskPriority(task.priority || 'medium');
     openTaskForm(task.date);

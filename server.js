@@ -880,6 +880,7 @@ app.post('/api/tasks', async (req, res) => {
             id: Date.now(),
             title: req.body.title,
             date: req.body.date,
+            time: req.body.time || '',
             note: req.body.note || '',
             priority: req.body.priority || 'medium',
             completed: false,

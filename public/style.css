@@ -4495,13 +4495,26 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     color: var(--danger);
 }
 
-.task-item-note {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin-top: 0.25rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.task-datetime-row {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.task-datetime-field {
+    flex: 1;
+}
+
+.task-datetime-field label {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.task-item-info {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-top: 0.3rem;
+    line-height: 1.5;
+    word-break: break-word;
 }
 
 .task-item-actions {
