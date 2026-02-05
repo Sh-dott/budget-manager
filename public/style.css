@@ -2208,7 +2208,6 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 }
 
 .transaction-item.recurring {
-    border-right: 3px solid var(--primary);
 }
 
 .recurring-badge {
