@@ -941,7 +941,6 @@ function updateExpensesPieChart() {
     const emptyEl = ctx.parentElement.querySelector('.chart-empty-state');
     if (emptyEl) emptyEl.style.display = 'none';
 
-    const isMobile = window.innerWidth <= 768;
     charts.expensesPie = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -957,12 +956,12 @@ function updateExpensesPieChart() {
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    position: isMobile ? 'bottom' : 'left',
+                    position: 'bottom',
                     rtl: true,
                     labels: {
                         color: '#a1a1aa',
                         font: { family: 'Heebo' },
-                        padding: isMobile ? 10 : 15
+                        padding: 12
                     }
                 }
             }
@@ -1236,7 +1235,6 @@ function updatePersonChart() {
     const emptyEl = ctx.parentElement.querySelector('.chart-empty-state');
     if (emptyEl) emptyEl.style.display = 'none';
 
-    const isMobilePerson = window.innerWidth <= 768;
     charts.person = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -1252,12 +1250,12 @@ function updatePersonChart() {
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    position: isMobilePerson ? 'bottom' : 'left',
+                    position: 'bottom',
                     rtl: true,
                     labels: {
                         color: '#a1a1aa',
                         font: { family: 'Heebo' },
-                        padding: isMobilePerson ? 10 : 15
+                        padding: 12
                     }
                 },
                 title: {
