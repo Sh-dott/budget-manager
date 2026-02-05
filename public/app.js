@@ -1678,13 +1678,6 @@ async function loadDailyTipsWidget() {
     }
 }
 
-async function refreshDailyTips() {
-    // Clear cache and reload
-    localStorage.removeItem('dailyTip');
-    await loadDailyTipsWidget();
-    showToast('הטיפ עודכן!', 'success');
-}
-
 // Anomaly Detection Widget - Auto-loads on dashboard
 async function loadAnomalyWidget() {
     const container = document.getElementById('anomalyContent');
@@ -3216,7 +3209,6 @@ window.deleteTransaction = deleteTransaction;
 window.editTransaction = editTransaction;
 window.saveBudget = saveBudget;
 window.getAIInsights = getAIInsights;
-window.refreshDailyTips = refreshDailyTips;
 window.dismissAnomaly = dismissAnomaly;
 window.loadBudgetRecommendations = loadBudgetRecommendations;
 window.applyBudgetRecommendation = applyBudgetRecommendation;

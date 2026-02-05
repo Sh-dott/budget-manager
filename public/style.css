@@ -592,27 +592,9 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
     position: relative;
 }
 
-.transaction-item::before {
-    content: '';
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 3px;
-    height: 0;
-    background: var(--gradient-primary);
-    border-radius: 3px;
-    transition: height var(--transition-fast);
-}
-
 .transaction-item:hover {
     background: var(--bg-hover);
     border-color: var(--border);
-    transform: translateX(-4px);
-}
-
-.transaction-item:hover::before {
-    height: 60%;
 }
 
 .transaction-right {
