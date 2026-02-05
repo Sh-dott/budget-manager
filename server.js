@@ -450,7 +450,7 @@ ${budgetStatus.length > 0 ? budgetStatus.map(b => `- ${b.category}: ${b.percenta
 // ========================================
 app.post('/api/insights/daily-tips', async (req, res) => {
     try {
-        // Check cache first (24 hour TTL)
+        // Check cache first (expires at midnight)
         const cachedTip = await db.collection('cache').findOne({
             _id: 'daily-tip',
             expiresAt: { $gt: new Date() }
@@ -460,16 +460,39 @@ app.post('/api/insights/daily-tips', async (req, res) => {
             return res.json({ success: true, tip: cachedTip.tip, cached: true });
         }
 
-        // Get last 7 days of transactions
+        // --- Gather rich context ---
+
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+        // This week's expenses
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const dateStr = sevenDaysAgo.toISOString().split('T')[0];
+        const weekStr = sevenDaysAgo.toISOString().split('T')[0];
 
-        const transactions = await db.collection('transactions')
-            .find({ date: { $gte: dateStr }, type: 'expense' })
+        // Previous week's expenses (for comparison)
+        const fourteenDaysAgo = new Date();
+        fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+        const prevWeekStr = fourteenDaysAgo.toISOString().split('T')[0];
+
+        // Current month transactions (all types)
+        const monthTransactions = await db.collection('transactions')
+            .find({ date: { $regex: `^${currentMonth}` } })
             .toArray();
 
-        if (transactions.length === 0) {
+        const thisWeekExpenses = await db.collection('transactions')
+            .find({ date: { $gte: weekStr }, type: 'expense' })
+            .toArray();
+
+        const prevWeekExpenses = await db.collection('transactions')
+            .find({ date: { $gte: prevWeekStr, $lt: weekStr }, type: 'expense' })
+            .toArray();
+
+        // Budgets
+        const budgetsDoc = await db.collection('settings').findOne({ _id: 'budgets' });
+        const budgets = budgetsDoc ? (() => { const { _id, ...b } = budgetsDoc; return b; })() : {};
+
+        if (thisWeekExpenses.length === 0 && monthTransactions.length === 0) {
             return res.json({
                 success: true,
                 tip: '💡 אין מספיק נתונים מהשבוע האחרון. המשך לתעד את ההוצאות שלך!',
@@ -477,47 +500,113 @@ app.post('/api/insights/daily-tips', async (req, res) => {
             });
         }
 
-        // Analyze spending by category
+        // Monthly income & expenses
+        const monthlyIncome = monthTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const monthlyExpenses = monthTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
+        // Weekly totals
+        const thisWeekTotal = thisWeekExpenses.reduce((s, t) => s + t.amount, 0);
+        const prevWeekTotal = prevWeekExpenses.reduce((s, t) => s + t.amount, 0);
+        const weeklyChange = prevWeekTotal > 0 ? Math.round(((thisWeekTotal - prevWeekTotal) / prevWeekTotal) * 100) : null;
+
+        // Category breakdown (this week)
         const categorySpending = {};
-        let totalSpent = 0;
-        transactions.forEach(t => {
+        thisWeekExpenses.forEach(t => {
             categorySpending[t.category] = (categorySpending[t.category] || 0) + t.amount;
-            totalSpent += t.amount;
+        });
+        const sortedCategories = Object.entries(categorySpending).sort((a, b) => b[1] - a[1]);
+
+        // Per-person breakdown (this month)
+        const personSpending = {};
+        monthTransactions.filter(t => t.type === 'expense').forEach(t => {
+            const person = t.person || 'לא צוין';
+            personSpending[person] = (personSpending[person] || 0) + t.amount;
         });
 
-        // Find highest spending category
-        const topCategory = Object.entries(categorySpending)
-            .sort((a, b) => b[1] - a[1])[0];
+        // Budget status (monthly)
+        const monthCategorySpending = {};
+        monthTransactions.filter(t => t.type === 'expense').forEach(t => {
+            monthCategorySpending[t.category] = (monthCategorySpending[t.category] || 0) + t.amount;
+        });
+        const budgetAlerts = [];
+        for (const [cat, spent] of Object.entries(monthCategorySpending)) {
+            const limit = budgets[cat];
+            if (limit && limit > 0) {
+                const pct = Math.round((spent / limit) * 100);
+                if (pct >= 80) {
+                    budgetAlerts.push(`${cat}: ${pct}% מהתקציב (₪${spent.toLocaleString()} מתוך ₪${limit.toLocaleString()})${pct > 100 ? ' - חריגה!' : ''}`);
+                }
+            }
+        }
 
-        // Generate tip using OpenAI if available
+        // Day of month for context (early/mid/end of month)
+        const dayOfMonth = now.getDate();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const monthProgress = Math.round((dayOfMonth / daysInMonth) * 100);
+
+        // --- Build the prompt ---
+
+        // Rotate insight types by day-of-year so it's different each day
+        const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+        const insightTypes = [
+            'תן תובנה על דפוס הוצאות שאולי המשתמש לא שם לב אליו, בהתבסס על הנתונים.',
+            'תן טיפ חיסכון קונקרטי ומעשי שמתאים בדיוק למצב הנוכחי של המשתמש.',
+            'תן התראה או אזהרה חשובה אם יש משהו שדורש תשומת לב (חריגה, מגמה, הוצאה חריגה).',
+            'תן חיזוק חיובי על משהו שהמשתמש עושה טוב, או הישג כלכלי קטן.',
+            'השווה בין השבוע הנוכחי לקודם ותן תובנה על המגמה.',
+        ];
+        const todayInsightType = insightTypes[dayOfYear % insightTypes.length];
+
         let tip;
         if (openai) {
-            const prompt = `אתה יועץ פיננסי. בשבוע האחרון המשתמש הוציא ₪${totalSpent.toLocaleString()} בסך הכל.
-הקטגוריה הכי יקרה: ${topCategory[0]} (₪${topCategory[1].toLocaleString()}).
-התפלגות הוצאות: ${Object.entries(categorySpending).map(([k, v]) => `${k}: ₪${v.toLocaleString()}`).join(', ')}.
+            prompt = `הנה המצב הפיננסי העדכני של המשתמש:
 
-תן טיפ חיסכון אחד קצר ומעשי בעברית (עד 50 מילים). התמקד בקטגוריה הגבוהה ביותר.`;
+📅 חודש נוכחי (${currentMonth}), יום ${dayOfMonth} מתוך ${daysInMonth} (${monthProgress}% מהחודש עבר):
+- הכנסות החודש: ₪${monthlyIncome.toLocaleString()}
+- הוצאות החודש: ₪${monthlyExpenses.toLocaleString()}
+- יתרה: ₪${(monthlyIncome - monthlyExpenses).toLocaleString()}
+${monthlyIncome > 0 ? `- אחוז חיסכון: ${Math.round(((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100)}%` : ''}
+
+📊 השבוע הנוכחי: ₪${thisWeekTotal.toLocaleString()} הוצאות
+${weeklyChange !== null ? `📈 שינוי מהשבוע הקודם: ${weeklyChange > 0 ? '+' : ''}${weeklyChange}% (שבוע קודם: ₪${prevWeekTotal.toLocaleString()})` : '(אין נתוני שבוע קודם להשוואה)'}
+
+הוצאות השבוע לפי קטגוריה:
+${sortedCategories.map(([k, v]) => `- ${k}: ₪${v.toLocaleString()}`).join('\n')}
+
+הוצאות החודש לפי אדם:
+${Object.entries(personSpending).map(([p, a]) => `- ${p}: ₪${a.toLocaleString()}`).join('\n')}
+
+${budgetAlerts.length > 0 ? `⚠️ התראות תקציב:\n${budgetAlerts.map(a => `- ${a}`).join('\n')}` : 'כל התקציבים בטווח תקין.'}
+
+${todayInsightType}
+ענה בעברית, תמציתי (עד 2 משפטים), עם אימוג׳י אחד בהתחלה. התייחס לנתונים הספציפיים - ציין מספרים, שמות קטגוריות, או שמות אנשים כשרלוונטי.`;
 
             const completion = await openai.chat.completions.create({
                 model: 'gpt-4o-mini',
                 messages: [
-                    { role: 'system', content: 'אתה יועץ פיננסי ידידותי. עונה בעברית בתמציתיות.' },
+                    { role: 'system', content: 'אתה יועץ פיננסי אישי חכם. אתה מנתח נתונים אמיתיים ונותן תובנות ספציפיות ואישיות - לא עצות גנריות. אתה מכיר את ההרגלים של המשתמש דרך הנתונים. ענה תמיד בעברית.' },
                     { role: 'user', content: prompt }
                 ],
-                max_tokens: 150,
-                temperature: 0.7
+                max_tokens: 200,
+                temperature: 0.8
             });
             tip = completion.choices[0].message.content;
-        } else {
-            // Fallback tips based on category
-            const tips = {
-                'מזון וקניות': `💡 הוצאת ₪${topCategory[1].toLocaleString()} על מזון השבוע. נסה לתכנן רשימת קניות מראש ולהימנע מקניות אימפולסיביות.`,
-                'מסעדות ובתי קפה': `💡 הוצאת ₪${topCategory[1].toLocaleString()} על אוכל בחוץ. נסה להכין אוכל בבית לפחות פעמיים בשבוע.`,
-                'תחבורה ודלק': `💡 הוצאת ₪${topCategory[1].toLocaleString()} על תחבורה. שקול שימוש בתחבורה ציבורית או שיתוף נסיעות.`,
-                'בילויים': `💡 הוצאת ₪${topCategory[1].toLocaleString()} על בילויים. חפש אירועים חינמיים או הנחות לפני שאתה יוצא.`,
-                'קניות ואופנה': `💡 הוצאת ₪${topCategory[1].toLocaleString()} על קניות. המתן 24 שעות לפני רכישות גדולות.`
-            };
-            tip = tips[topCategory[0]] || `💡 הקטגוריה הגבוהה ביותר שלך השבוע: ${topCategory[0]} (₪${topCategory[1].toLocaleString()}). נסה להגדיר תקציב לקטגוריה זו.`;
+        }
+
+        if (!tip) {
+            // Fallback when no OpenAI
+            const topCategory = sortedCategories[0];
+            if (!topCategory) {
+                tip = '💡 המשך לתעד את ההוצאות שלך כדי לקבל טיפים מותאמים אישית!';
+            } else if (budgetAlerts.length > 0) {
+                tip = `⚠️ שים לב! ${budgetAlerts[0]}. כדאי לבדוק אם אפשר לצמצם עד סוף החודש.`;
+            } else if (weeklyChange !== null && weeklyChange > 20) {
+                tip = `📈 ההוצאות השבוע עלו ב-${weeklyChange}% לעומת השבוע הקודם (₪${thisWeekTotal.toLocaleString()} מול ₪${prevWeekTotal.toLocaleString()}). שווה לבדוק מה קפץ.`;
+            } else if (weeklyChange !== null && weeklyChange < -10) {
+                tip = `🎉 כל הכבוד! ההוצאות ירדו ב-${Math.abs(weeklyChange)}% לעומת השבוע הקודם. המשך כך!`;
+            } else {
+                tip = `💡 הקטגוריה הגבוהה ביותר השבוע: ${topCategory[0]} (₪${topCategory[1].toLocaleString()}). ${monthlyIncome > 0 ? `אחוז החיסכון החודשי: ${Math.round(((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100)}%.` : ''}`;
+            }
         }
 
         // Cache until midnight
