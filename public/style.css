@@ -549,12 +549,12 @@ button, .nav-item, .mobile-nav-item, .transaction-item, .person-btn, .type-btn {
 }
 
 .chart-container {
-    height: 250px;
+    height: 300px;
     position: relative;
 }
 
 .chart-container.large {
-    height: 300px;
+    height: 350px;
 }
 
 /* Transactions List */
